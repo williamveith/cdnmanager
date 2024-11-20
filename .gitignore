@@ -2,3 +2,6 @@
 !.gitignore
 bin/*
 *.sqlite3
+build/bin
+node_modules
+frontend/dist

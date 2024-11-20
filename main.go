@@ -5,16 +5,23 @@ import (
 	"fmt"
 	"os"
 
+	"cdnmanager/internal/database"
+	"cdnmanager/internal/session"
+
 	"github.com/joho/godotenv"
-	"github.com/williamveith/cdnmanager/internal/database"
-	"github.com/williamveith/cdnmanager/internal/session"
+	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
-var cdnDB *database.Database
-var cloudflareSession *session.CloudflareSession
+//go:embed all:frontend/dist
+var assets embed.FS
 
 //go:embed .env
 var embeddedEnvFile embed.FS
+
+var cdnDB *database.Database
+var cloudflareSession *session.CloudflareSession
 
 func init() {
 	loadEmbeddedEnv()
@@ -47,5 +54,25 @@ func SyncFromCloudflare() {
 }
 
 func main() {
-	fmt.Print("Complete")
+	// Create an instance of the app structure
+	app := NewApp()
+
+	// Create application with options
+	err := wails.Run(&options.App{
+		Title:  "cdnmanager",
+		Width:  1024,
+		Height: 768,
+		AssetServer: &assetserver.Options{
+			Assets: assets,
+		},
+		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		OnStartup:        app.startup,
+		Bind: []interface{}{
+			app,
+		},
+	})
+
+	if err != nil {
+		println("Error:", err.Error())
+	}
 }
