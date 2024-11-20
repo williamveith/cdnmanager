@@ -22,17 +22,6 @@ type CloudflareSession struct {
 	domain       string
 }
 
-func Test() []Entry {
-	var entries []Entry
-	entry := &Entry{
-		Name:     "Name",
-		Metadata: "JSON",
-		Value:    "Value",
-	}
-	entries = append(entries, *entry)
-	return entries
-}
-
 func NewCloudflareSession() *CloudflareSession {
 	api, _ := cloudflare.New(os.Getenv("cloudflare_api_key"), os.Getenv("cloudflare_email"))
 
@@ -46,8 +35,7 @@ func NewCloudflareSession() *CloudflareSession {
 	return cloudflareSession
 }
 
-// Works
-func GetValue(cloudflareSession *CloudflareSession, key string) string {
+func (cloudflareSession *CloudflareSession) GetValue(key string) string {
 	resp, _ := cloudflareSession.api.GetWorkersKV(context.Background(), cloudflareSession.account_id, cloudflare.GetWorkersKVParams{
 		NamespaceID: cloudflareSession.namespace_id,
 		Key:         key,
@@ -56,52 +44,59 @@ func GetValue(cloudflareSession *CloudflareSession, key string) string {
 	return string(resp)
 }
 
-func GetAllValues(cloudflareSession *CloudflareSession) []string {
-	storageKeys := GetAllKeys(cloudflareSession)
+func (cloudflareSession *CloudflareSession) GetAllValues() []string {
+	storageKeys := cloudflareSession.GetAllKeys()
 	var values []string
 	for _, entry := range storageKeys {
-		values = append(values, GetValue(cloudflareSession, entry.Name))
+		values = append(values, cloudflareSession.GetValue(entry.Name))
 	}
 	return values
 }
 
-func GetAllKeys(cloudflareSession *CloudflareSession) []cloudflare.StorageKey {
+func (cloudflareSession *CloudflareSession) GetAllKeys() []cloudflare.StorageKey {
 	resp, _ := cloudflareSession.api.ListWorkersKVKeys(context.Background(), cloudflareSession.account_id, cloudflare.ListWorkersKVsParams{
 		NamespaceID: cloudflareSession.namespace_id,
 	})
 	return resp.Result
 }
 
-func GetAllEntries(cloudflareSession *CloudflareSession) []Entry {
-	storageKeys := GetAllKeys(cloudflareSession)
+func (cloudflareSession *CloudflareSession) GetAllEntries() []Entry {
+	storageKeys := cloudflareSession.GetAllKeys()
 	var entries []Entry
 	for _, entry := range storageKeys {
 		entry := Entry{
 			Name:     entry.Name,
 			Metadata: entry.Metadata,
-			Value:    GetValue(cloudflareSession, entry.Name),
+			Value:    cloudflareSession.GetValue(entry.Name),
 		}
 		entries = append(entries, entry)
 	}
 	return entries
 }
 
-//	entries := []*cloudflare.WorkersKVPair{
-//		{
-//			Key:   "key1",
-//			Value: "value1",
-//			Metadata: "metadata1",
-//		},
-//		{
-//			Key:   "key2",
-//			Value: "value2",
-//			Metadata: "metadata2",
-//		},
-//	}
-func WriteEntries(cloudflareSession *CloudflareSession, entries []*cloudflare.WorkersKVPair) {
+func (cloudflareSession *CloudflareSession) GetAllEntriesFromKeys(storageKeys []cloudflare.StorageKey) []Entry {
+	var entries []Entry
+	for _, entry := range storageKeys {
+		entry := Entry{
+			Name:     entry.Name,
+			Metadata: entry.Metadata,
+			Value:    cloudflareSession.GetValue(entry.Name),
+		}
+		entries = append(entries, entry)
+	}
+	return entries
+}
+
+func (cloudflareSession *CloudflareSession) Size() (int, []cloudflare.StorageKey) {
+	entries := cloudflareSession.GetAllKeys()
+	return len(entries), entries
+}
+
+func (cloudflareSession *CloudflareSession) WriteEntry(entry Entry) {
+	workersKVPairs := entryToWorkersKVPairs(entry)
 	resp, err := cloudflareSession.api.WriteWorkersKVEntries(context.Background(), cloudflareSession.account_id, cloudflare.WriteWorkersKVEntriesParams{
 		NamespaceID: cloudflareSession.namespace_id,
-		KVs:         entries,
+		KVs:         workersKVPairs,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -110,7 +105,20 @@ func WriteEntries(cloudflareSession *CloudflareSession, entries []*cloudflare.Wo
 	fmt.Println(resp)
 }
 
-func DeleteKeyValue(cloudflareSession *CloudflareSession, key string) {
+func (cloudflareSession *CloudflareSession) WriteEntries(entries []Entry) {
+	workersKVPairs := entriesToWorkersKVPairs(entries)
+	resp, err := cloudflareSession.api.WriteWorkersKVEntries(context.Background(), cloudflareSession.account_id, cloudflare.WriteWorkersKVEntriesParams{
+		NamespaceID: cloudflareSession.namespace_id,
+		KVs:         workersKVPairs,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(resp)
+}
+
+func (cloudflareSession *CloudflareSession) DeleteKeyValue(key string) {
 	resp, err := cloudflareSession.api.DeleteWorkersKVEntry(context.Background(), cloudflareSession.account_id, cloudflare.DeleteWorkersKVEntryParams{
 		NamespaceID: cloudflareSession.namespace_id,
 		Key:         key,
@@ -122,7 +130,7 @@ func DeleteKeyValue(cloudflareSession *CloudflareSession, key string) {
 	fmt.Printf("%+v\n", resp)
 }
 
-func DeleteKeyValues(cloudflareSession *CloudflareSession, keys []string) {
+func (cloudflareSession *CloudflareSession) DeleteKeyValues(keys []string) {
 	resp, err := cloudflareSession.api.DeleteWorkersKVEntries(context.Background(), cloudflareSession.account_id, cloudflare.DeleteWorkersKVEntriesParams{
 		NamespaceID: cloudflareSession.namespace_id,
 		Keys:        keys,
@@ -132,4 +140,20 @@ func DeleteKeyValues(cloudflareSession *CloudflareSession, keys []string) {
 	}
 
 	fmt.Println(resp)
+}
+
+func entryToWorkersKVPairs(entry Entry) []*cloudflare.WorkersKVPair {
+	return entriesToWorkersKVPairs([]Entry{entry})
+}
+
+func entriesToWorkersKVPairs(entries []Entry) []*cloudflare.WorkersKVPair {
+	var kvPairs []*cloudflare.WorkersKVPair
+	for _, entry := range entries {
+		kvPairs = append(kvPairs, &cloudflare.WorkersKVPair{
+			Key:      entry.Name,
+			Value:    entry.Value,
+			Metadata: entry.Metadata,
+		})
+	}
+	return kvPairs
 }

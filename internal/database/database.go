@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -19,104 +20,172 @@ type Database struct {
 func NewDatabase(dbName string) *Database {
 	db, _ := sql.Open("sqlite3", dbName)
 
-	cdb := &Database{
+	return &Database{
 		dbName: dbName,
 		db:     db,
 	}
-
-	cdb.CreateTable()
-
-	return cdb
 }
 
-func (cdb *Database) CreateTable() error {
+func (cdb *Database) CreateTable() {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
-	_, err := cdb.db.Exec(`
+	cdb.db.Exec(`
 		CREATE TABLE IF NOT EXISTS records (
 			name TEXT PRIMARY KEY,
 			value TEXT,
 			metadata TEXT
 		)
 	`)
-	return err
 }
 
-func (cdb *Database) GetRowCount(tableName string) (int, error) {
-	var rowCount int
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", tableName)
-
-	err := cdb.db.QueryRow(query).Scan(&rowCount)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get row count: %w", err)
-	}
-
-	return rowCount, nil
-}
-
-func (cdb *Database) DropTable(tableName string) error {
+func (cdb *Database) DropTable() {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
-
-	query := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
-	_, err := cdb.db.Exec(query)
-	if err != nil {
-		return fmt.Errorf("failed to drop table %s: %w", tableName, err)
-	}
-
-	return nil
+	cdb.db.Exec(`DROP TABLE IF EXISTS records`)
 }
 
-func (cdb *Database) InsertEntry(datavalues session.Entry) error {
+func (cdb *Database) InsertEntry(datavalues session.Entry) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
 	tx, err := cdb.db.Begin()
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		fmt.Print("Failed To Begin Transaction:", err)
 	}
 	defer tx.Rollback()
 
 	stmt, _ := tx.Prepare(`
-		INSERT INTO records (name, value, metadata)
+		INSERT OR REPLACE INTO records (name, value, metadata)
 		VALUES (?, ?, ?)
 	`)
 	defer stmt.Close()
 	metadata := convertMetadataToString(datavalues.Metadata)
 	stmt.Exec(datavalues.Name, datavalues.Value, metadata)
-	return tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		fmt.Print("Failed To Commit Transaction:", err)
+	}
 }
 
-func (cdb *Database) Close() error {
-	cdb.lock.Lock()
-	defer cdb.lock.Unlock()
-
-	return cdb.db.Close()
-}
-
-func (cdb *Database) InsertEntries(datavalues []session.Entry) error {
+func (cdb *Database) InsertEntries(datavalues []session.Entry) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
 	tx, err := cdb.db.Begin()
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		fmt.Print("Failed To Begin Transaction:", err)
 	}
 	defer tx.Rollback()
 
 	stmt, _ := tx.Prepare(`
-		INSERT INTO records (name, value, metadata)
+		INSERT OR REPLACE INTO records (name, value, metadata)
 		VALUES (?, ?, ?)
 	`)
 	defer stmt.Close()
 
 	for _, datavalue := range datavalues {
-		metadata := convertMetadataToString(datavalue.Metadata)
-		stmt.Exec(datavalue.Name, datavalue.Value, metadata)
+		stmt.Exec(datavalue.Name, datavalue.Value, convertMetadataToString(datavalue.Metadata))
 	}
 
-	return tx.Commit()
+	tx.Commit()
+	if err != nil {
+		fmt.Print("Failed To Commit Transaction:", err)
+	}
+}
+
+func (cdb *Database) GetEntryByName(name string) session.Entry {
+	cdb.lock.Lock()
+	defer cdb.lock.Unlock()
+	var value, metadata string
+	_ = cdb.db.QueryRow(`SELECT value, metadata FROM records WHERE name = ?`, name).Scan(&value, &metadata)
+	entry := session.Entry{
+		Name:     name,
+		Metadata: metadata,
+		Value:    value,
+	}
+	return entry
+}
+
+func (cdb *Database) GetEntryByValue(value string) session.Entry {
+	cdb.lock.Lock()
+	defer cdb.lock.Unlock()
+	var name, metadata string
+	_ = cdb.db.QueryRow(`SELECT name, metadata FROM records WHERE value = ?`, value).Scan(&name, &metadata)
+	entry := session.Entry{
+		Name:     name,
+		Metadata: metadata,
+		Value:    value,
+	}
+	return entry
+}
+
+func (cdb *Database) GetEntriesByValue(value string) []session.Entry {
+	cdb.lock.Lock()
+	defer cdb.lock.Unlock()
+
+	rows, _ := cdb.db.Query(`SELECT name, value, metadata FROM records WHERE value = ?`, value)
+	defer rows.Close()
+
+	var entries []session.Entry
+	for rows.Next() {
+		var name, metadata string
+		rows.Scan(&name, &metadata)
+		entries = append(entries, session.Entry{
+			Name:     name,
+			Metadata: metadata,
+			Value:    value,
+		})
+	}
+	return entries
+}
+
+func (cdb *Database) GetAllEntries() []session.Entry {
+	cdb.lock.Lock()
+	defer cdb.lock.Unlock()
+
+	rows, _ := cdb.db.Query(`SELECT name, value, metadata FROM records`)
+	defer rows.Close()
+
+	var entries []session.Entry
+	for rows.Next() {
+		var name, value, metadata string
+		rows.Scan(&name, &value, &metadata)
+		entries = append(entries, session.Entry{
+			Name:     name,
+			Value:    value,
+			Metadata: metadata,
+		})
+	}
+	return entries
+}
+
+func (cdb *Database) DeleteName(key string) {
+	cdb.lock.Lock()
+	defer cdb.lock.Unlock()
+	_, _ = cdb.db.Exec(`DELETE FROM records WHERE name = ?`, key)
+}
+
+func (cdb *Database) DeleteNames(names []string) {
+	cdb.lock.Lock()
+	defer cdb.lock.Unlock()
+
+	query := `DELETE FROM records WHERE name IN (?` + strings.Repeat(",?", len(names)-1) + `)`
+	args := make([]interface{}, len(names))
+	for i, name := range names {
+		args[i] = name
+	}
+	cdb.db.Exec(query, args...)
+}
+
+func (cdb *Database) DeleteEntry(entry session.Entry) {
+	cdb.DeleteName(entry.Name)
+}
+
+func (cdb *Database) DeleteEntries(entries []session.Entry) {
+	for _, entry := range entries {
+		cdb.DeleteEntry(entry)
+	}
 }
 
 func convertMetadataToString(metadata interface{}) string {
@@ -132,4 +201,15 @@ func convertMetadataToString(metadata interface{}) string {
 		}
 		return string(jsonBytes)
 	}
+}
+
+func (cdb *Database) Size() int {
+	cdb.lock.Lock()
+	defer cdb.lock.Unlock()
+	query := `SELECT COUNT(*) FROM records`
+
+	var rowCount int
+	cdb.db.QueryRow(query).Scan(&rowCount)
+
+	return rowCount
 }
