@@ -1,43 +1,42 @@
 import './style.css';
 import './app.css';
 
-import logo from './assets/images/logo-universal.png';
-import {Greet} from '../wailsjs/go/main/App';
+import { GetEntryByName } from '../wailsjs/go/database/Database';
 
 document.querySelector('#app').innerHTML = `
-    <img id="logo" class="logo">
-      <div class="result" id="result">Please enter your name below 👇</div>
-      <div class="input-box" id="input">
-        <input class="input" id="name" type="text" autocomplete="off" />
-        <button class="btn" onclick="greet()">Greet</button>
-      </div>
+    <div class="header" id="header">Enter Entry ID</div>
+    <div class="input-box" id="entry-input">
+        <input class="input" id="entryValue" type="text" autocomplete="off" />
+        <button class="btn" onclick="searchEntry()">Search</button>
     </div>
+    <div class="result" id="entryResult"></div>
 `;
-document.getElementById('logo').src = logo;
 
-let nameElement = document.getElementById("name");
-nameElement.focus();
-let resultElement = document.getElementById("result");
+let entryValueElement = document.getElementById("entryValue");
+entryValueElement.focus();
+let resultElement = document.getElementById("entryResult");
 
-// Setup the greet function
-window.greet = function () {
-    // Get name
-    let name = nameElement.value;
+window.searchEntry = async function () {
+    // Get value
+    let value = entryValueElement.value;
 
     // Check if the input is empty
-    if (name === "") return;
+    if (value === "") return;
 
-    // Call App.Greet(name)
+    // Call Database.GetEntryByValue(value)
     try {
-        Greet(name)
-            .then((result) => {
-                // Update result with data back from App.Greet()
-                resultElement.innerText = result;
-            })
-            .catch((err) => {
-                console.error(err);
-            });
+        const entry = await GetEntryByName(value);
+        if (entry.Name) {
+            resultElement.innerText = `
+                Name: ${entry.Name}\n
+                Value: ${entry.Value}\n
+                Metadata: ${JSON.stringify(entry.Metadata, null, 2)}
+            `;
+        } else {
+            resultElement.innerText = "No entry found for the provided value.";
+        }
     } catch (err) {
         console.error(err);
-    }
+        resultElement.innerText = "An error occurred while fetching the entry.";
+    };
 };
