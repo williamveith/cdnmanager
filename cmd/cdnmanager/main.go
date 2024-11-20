@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -16,35 +17,10 @@ var cloudflareSession *session.CloudflareSession
 var embeddedEnvFile embed.FS
 
 func init() {
-	initializeEnvironment()
-	initializeSession()
-	initializeDatabase()
-}
-
-func initializeEnvironment() {
 	loadEmbeddedEnv()
-}
-
-func initializeSession() {
-	cloudflareSession = session.NewCloudflareSession()
-}
-
-func initializeDatabase() {
 	cdnDB = database.NewDatabase("data/cdn.sqlite3")
-	synchronizeDatabaseWithCloudflare()
-}
-
-func synchronizeDatabaseWithCloudflare() {
-	keys := session.GetAllKeys(cloudflareSession)
-	numberOfKeysWeb := len(keys)
-	numberOfKeysLocal, _ := cdnDB.GetRowCount("records")
-
-	if numberOfKeysWeb > numberOfKeysLocal {
-		response := session.GetAllEntries(cloudflareSession)
-		cdnDB.DropTable("records")
-		cdnDB.CreateTable()
-		cdnDB.InsertEntries(response)
-	}
+	cloudflareSession = session.NewCloudflareSession()
+	SyncFromCloudflare()
 }
 
 func loadEmbeddedEnv() {
@@ -57,8 +33,19 @@ func loadEmbeddedEnv() {
 	}
 }
 
+func SyncFromCloudflare() {
+	cloudflareSize, storageKeys := cloudflareSession.Size()
+	if cdnDB.Size() < cloudflareSize {
+		fmt.Println("Initializing Table With Cloudflare Values...")
+		entries := cloudflareSession.GetAllEntriesFromKeys(storageKeys)
+		cdnDB.DropTable()
+		cdnDB.CreateTable()
+		cdnDB.InsertEntries(entries)
+	} else {
+		fmt.Println("Existing Database Up To Date")
+	}
+}
+
 func main() {
-	session.GetAllKeys(cloudflareSession)
-	response := session.GetAllEntries(cloudflareSession)
-	cdnDB.InsertEntries(response)
+	fmt.Print("Complete")
 }
