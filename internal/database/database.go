@@ -7,8 +7,9 @@ import (
 	"strings"
 	"sync"
 
+	"cdnmanager/internal/session"
+
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/williamveith/cdnmanager/internal/session"
 )
 
 type Database struct {
