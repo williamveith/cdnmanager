@@ -53,12 +53,10 @@ func main() {
 	cloudflareSession = session.NewCloudflareSession()
 	SyncFromCloudflare()
 
-	// Create an instance of the app structure
 	app := NewApp()
 
-	// Create application with options
 	err := wails.Run(&options.App{
-		Title:         "helloworld",
+		Title:         "Content Delivery Network Manager",
 		Width:         1024,
 		Height:        768,
 		DisableResize: false,
