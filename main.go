@@ -36,7 +36,7 @@ func loadEmbeddedEnv() {
 
 func SyncFromCloudflare() {
 	cloudflareSize, storageKeys := cloudflareSession.Size()
-	if cdnDB.Size() < cloudflareSize {
+	if cdnDB.Size() != cloudflareSize {
 		fmt.Println("Initializing Table With Cloudflare Values...")
 		entries := cloudflareSession.GetAllEntriesFromKeys(storageKeys)
 		cdnDB.DropTable()
