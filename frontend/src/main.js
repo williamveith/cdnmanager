@@ -1,7 +1,8 @@
 import './style.css';
 import './app.css';
 
-import { GetEntryByName, GetEntryByValue, GetEntriesByValue, GetAllEntries, WriteEntry } from '../wailsjs/go/database/Database';
+import { GetEntryByName, GetEntryByValue, GetEntriesByValue, GetAllEntries, InsertKVEntryIntoDatabase } from '../wailsjs/go/database/Database';
+import { InsertKVEntry } from '../wailsjs/go/session/CloudflareSession';
 
 document.querySelector('#app').innerHTML = `
     <div class="input-box" id="search-entry">
@@ -139,11 +140,11 @@ window.addMetaDataEntryField = function () {
     newRemoveButton.className = 'btn'
     newRemoveButton.style = 'width:auto;'
     newRemoveButton.innerHTML = 'Remove'
-    newRemoveButton.addEventListener("click", function() {
+    newRemoveButton.addEventListener("click", function () {
         const jsonDiv = newRemoveButton.parentNode
         const insertDiv = jsonDiv.parentNode
-        insertDiv.removeChild(jsonDiv); 
-      });
+        insertDiv.removeChild(jsonDiv);
+    });
 
     newEntryDiv.appendChild(newKeyInput);
     newEntryDiv.appendChild(newValueInput);
@@ -152,24 +153,9 @@ window.addMetaDataEntryField = function () {
     entryMetadataDiv.appendChild(newEntryDiv);
 };
 
-window.removeMetaDataEntryField = function(){
+window.removeMetaDataEntryField = function () {
     const entryMetadata = document.getElementById("entryMetadata");
     entryMetadata.removeChild(entryMetadata.lastChild);
-};
-
-window.getInsertMetaData = function() {
-    const metadataEntries = document.querySelectorAll('.metadata-entry'); // Make sure each div has this class
-    const jsonObject = {};
-
-    metadataEntries.forEach(entry => {
-        const key = entry.querySelector('.jsonKey').value.trim();
-        const value = entry.querySelector('.jsonValue').value.trim();
-        if (key && value) {
-            jsonObject[key] = value;
-        }
-    });
-
-    return JSON.stringify(jsonObject) || '{}'; // Return '{}' if the object is empty
 };
 
 function displayClipboardMessage(message) {
@@ -268,19 +254,53 @@ function enableCopying() {
     });
 }
 
-window.generateUUID = function() {
-    const entryNameInput = document.getElementById('entryName');
+window.generateUUID = function () {
+    const entryNameInput = document.getElementById('insertEntryName');
     entryNameInput.value = crypto.randomUUID();
 }
 
-window.insertEntry = function() {
-    const metadata = getInsertMetaData()
-    const value = document.getElementById("insertEntryValue")
-    const name = document.getElementById("insertEntryName")
-    InsertEntry(name, value, metadata)
+window.insertEntry = async function () {
+    const metadataEntries = document.querySelectorAll('.metadata-entry');
+    const jsonObject = {};
+
+    metadataEntries.forEach(entry => {
+        const key = entry.querySelector('.jsonKey').value.trim();
+        const value = entry.querySelector('.jsonValue').value.trim();
+        if (key && value) {
+            jsonObject[key] = value;
+        }
+    });
+
+    const metadata = jsonObject;
+    const value = document.getElementById("insertEntryValue").value.trim();
+    const name = document.getElementById("insertEntryName").value.trim();
+
+    try {
+        const response = await InsertKVEntry(name, value, metadata);
+        console.log(response);
+        if (response && response.success) {
+            await InsertKVEntryIntoDatabase(name, value, metadata);
+            clearSuccessfulInputs()
+            console.log('Entry successfully inserted into the database.');
+        } else {
+            console.error('Failed to insert entry into Cloudflare KV:', response.errors);
+        }
+    } catch (error) {
+        console.error('Failed to insert entry:', error);
+    }
 }
+
 
 window.clearResults = function () {
     updateResults();
     entryValueElement.value = '';
 };
+
+window.clearSuccessfulInputs = function () {
+    document.getElementById("insertEntryValue").value = '';
+    document.getElementById("insertEntryName").value = '';
+    const metaDataDiv = document.getElementById("entryMetadata")
+    while (metaDataDiv.firstChild) {
+        metaDataDiv.removeChild(metaDataDiv.firstChild);
+    }
+}

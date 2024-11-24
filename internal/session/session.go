@@ -92,7 +92,7 @@ func (cloudflareSession *CloudflareSession) Size() (int, []cloudflare.StorageKey
 	return len(entries), entries
 }
 
-func (cloudflareSession *CloudflareSession) WriteEntry(entry Entry) {
+func (cloudflareSession *CloudflareSession) WriteEntry(entry Entry) (resp cloudflare.Response) {
 	workersKVPairs := entryToWorkersKVPairs(entry)
 	resp, err := cloudflareSession.api.WriteWorkersKVEntries(context.Background(), cloudflareSession.account_id, cloudflare.WriteWorkersKVEntriesParams{
 		NamespaceID: cloudflareSession.namespace_id,
@@ -102,16 +102,16 @@ func (cloudflareSession *CloudflareSession) WriteEntry(entry Entry) {
 		log.Fatal(err)
 	}
 
-	fmt.Println(resp)
+	return resp
 }
 
-func (cloudflareSession *CloudflareSession) InsertEntry(name string, value string, metadata string) {
+func (cloudflareSession *CloudflareSession) InsertKVEntry(name string, value string, metadata map[string]interface{}) (resp cloudflare.Response) {
 	newEntry := Entry{
 		Name:     name,
 		Metadata: metadata,
 		Value:    value,
 	}
-	cloudflareSession.WriteEntry(newEntry)
+	return cloudflareSession.WriteEntry(newEntry)
 }
 
 func (cloudflareSession *CloudflareSession) WriteEntries(entries []Entry) {
