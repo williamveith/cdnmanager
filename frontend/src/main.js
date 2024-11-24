@@ -1,18 +1,18 @@
 import './style.css';
 import './app.css';
 
-import { GetEntryByName, GetEntryByValue, GetEntriesByValue, GetAllEntries } from '../wailsjs/go/database/Database';
+import { GetEntryByName, GetEntryByValue, GetEntriesByValue, GetAllEntries, WriteEntry } from '../wailsjs/go/database/Database';
 
 document.querySelector('#app').innerHTML = `
     <div class="input-box" id="search-entry">
         <label for="searchType">Search:</label>
-        <select id="searchType">
+        <select id="searchType" style="width:292px;">
             <option value="GetEntryByName">Search by UUID</option>
             <option value="GetEntryByValue">Search by URL (single)</option>
             <option value="GetEntriesByValue">Search by URL (multiple)</option>
             <option value="GetAllEntries">Get All Entries</option>
         </select>
-        <input class="input" id="entryValue" type="text" autocomplete="off" placeholder="Enter search value" />
+        <input class="input" id="entryValue" type="text" autocomplete="off" placeholder="Enter search value" style="width:400px;"/>
         <button class="btn" onclick="searchEntry()">Search</button>
         <button id="clear" class="btn" onclick="clearResults()" style="display:none;">Clear</button>
     </div>
@@ -20,15 +20,33 @@ document.querySelector('#app').innerHTML = `
 `;
 
 document.querySelector('#app').innerHTML += `
-    <div class="input-box" id="insert-entry">
-        <label for="entryName">Insert:</label>
-        <input class="input" id="entryName" type="text" placeholder="Enter name" />
-        <input class="input" id="entryValue" type="text" placeholder="Enter value" />
+    <div class="input-box" id="insert-entry" style="margin-top:10px;">
+        <label for="insertEntryName">Insert:</label>
+        <div style="position: relative; display: inline-block;">
+            <input class="input" id="insertEntryName" type="text" placeholder="Enter name" size="40"/>
+            <!-- Add SVG icon -->
+                <svg 
+                    onclick="generateUUID()" 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    width="20" 
+                    height="20" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="#5007b5" 
+                    stroke-width="2" 
+                    stroke-linecap="round" 
+                    stroke-linejoin="round" 
+                    style="position: absolute; top: 50%; right: 10px; transform: translateY(-50%); cursor: pointer;">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="16"></line>
+                    <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+        </div>
+        <input class="input" id="insertEntryValue" type="text" placeholder="Enter value" style="width:400px;"/>
         <button class="btn" onclick="insertEntry()">Insert</button>
         <div id="entryMetadata"></div>
         <span class="indent">
-            <button class="btn" onclick="addMetaDataEntryField()" style="width:auto;margin-top:10px;margin-left:250px;">+ MetaData</button>
-            <button class="btn" onclick="removeMetaDataEntryField()" style="width:auto;">- MetaData</button>
+            <button class="btn" onclick="addMetaDataEntryField()" style="width:auto;margin-top:10px;margin-left:80px;">+ MetaData</button>
         </span>
     </div>
 `;
@@ -99,7 +117,7 @@ window.addMetaDataEntryField = function () {
     const entryMetadataDiv = document.getElementById('entryMetadata');
 
     const newEntryDiv = document.createElement('div');
-    newEntryDiv.className = 'indented';
+    newEntryDiv.className = 'indented metadata-entry';
     newEntryDiv.style.display = 'flex';
     newEntryDiv.style.alignItems = 'center';
     newEntryDiv.style.marginBottom = '5px';
@@ -107,16 +125,29 @@ window.addMetaDataEntryField = function () {
     const newKeyInput = document.createElement('input');
     newKeyInput.className = 'input jsonKey';
     newKeyInput.type = 'text';
-    newKeyInput.placeholder = 'Enter JSON Key';
+    newKeyInput.placeholder = 'Metadata Key';
+    newKeyInput.required = true;
     newKeyInput.style.marginRight = '5px';
 
     const newValueInput = document.createElement('input');
     newValueInput.className = 'input jsonValue';
     newValueInput.type = 'text';
-    newValueInput.placeholder = 'Enter JSON Value';
+    newValueInput.placeholder = 'Metadata Value';
+    newKeyInput.required = true;
+
+    const newRemoveButton = document.createElement('button')
+    newRemoveButton.className = 'btn'
+    newRemoveButton.style = 'width:auto;'
+    newRemoveButton.innerHTML = 'Remove'
+    newRemoveButton.addEventListener("click", function() {
+        const jsonDiv = newRemoveButton.parentNode
+        const insertDiv = jsonDiv.parentNode
+        insertDiv.removeChild(jsonDiv); 
+      });
 
     newEntryDiv.appendChild(newKeyInput);
     newEntryDiv.appendChild(newValueInput);
+    newEntryDiv.appendChild(newRemoveButton)
 
     entryMetadataDiv.appendChild(newEntryDiv);
 };
@@ -124,6 +155,21 @@ window.addMetaDataEntryField = function () {
 window.removeMetaDataEntryField = function(){
     const entryMetadata = document.getElementById("entryMetadata");
     entryMetadata.removeChild(entryMetadata.lastChild);
+};
+
+window.getInsertMetaData = function() {
+    const metadataEntries = document.querySelectorAll('.metadata-entry'); // Make sure each div has this class
+    const jsonObject = {};
+
+    metadataEntries.forEach(entry => {
+        const key = entry.querySelector('.jsonKey').value.trim();
+        const value = entry.querySelector('.jsonValue').value.trim();
+        if (key && value) {
+            jsonObject[key] = value;
+        }
+    });
+
+    return JSON.stringify(jsonObject) || '{}'; // Return '{}' if the object is empty
 };
 
 function displayClipboardMessage(message) {
@@ -146,7 +192,7 @@ function displayClipboardMessage(message) {
 
 function displayEntries(entries) {
     let tableHTML = `
-        <table id="resultTable">
+        <table id="resultTable" style="margin-bottom:10px;">
             <thead>
                 <tr>
                     <th data-column="Name" class="sortable">Name</th>
@@ -222,6 +268,17 @@ function enableCopying() {
     });
 }
 
+window.generateUUID = function() {
+    const entryNameInput = document.getElementById('entryName');
+    entryNameInput.value = crypto.randomUUID();
+}
+
+window.insertEntry = function() {
+    const metadata = getInsertMetaData()
+    const value = document.getElementById("insertEntryValue")
+    const name = document.getElementById("insertEntryName")
+    InsertEntry(name, value, metadata)
+}
 
 window.clearResults = function () {
     updateResults();

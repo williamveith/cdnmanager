@@ -17,6 +17,8 @@ export function GetAllValues():Promise<Array<string>>;
 
 export function GetValue(arg1:string):Promise<string>;
 
+export function InsertEntry(arg1:string,arg2:string,arg3:string):Promise<void>;
+
 export function Size():Promise<number|Array<cloudflare.StorageKey>>;
 
 export function WriteEntries(arg1:Array<session.Entry>):Promise<void>;
