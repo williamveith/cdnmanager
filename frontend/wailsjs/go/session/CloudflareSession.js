@@ -30,6 +30,10 @@ export function GetValue(arg1) {
   return window['go']['session']['CloudflareSession']['GetValue'](arg1);
 }
 
+export function InsertEntry(arg1, arg2, arg3) {
+  return window['go']['session']['CloudflareSession']['InsertEntry'](arg1, arg2, arg3);
+}
+
 export function Size() {
   return window['go']['session']['CloudflareSession']['Size']();
 }
