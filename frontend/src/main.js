@@ -2,7 +2,7 @@ import './style.css';
 import './app.css';
 
 import { GetEntryByName, GetEntryByValue, GetEntriesByValue, GetAllEntries, InsertKVEntryIntoDatabase } from '../wailsjs/go/database/Database';
-import { InsertKVEntry } from '../wailsjs/go/session/CloudflareSession';
+import { InsertKVEntry, DeleteKeyValue } from '../wailsjs/go/session/CloudflareSession';
 
 document.querySelector('#app').innerHTML = `
     <div class="input-box" id="search-entry">
@@ -49,6 +49,14 @@ document.querySelector('#app').innerHTML += `
         <span class="indent">
             <button class="btn" onclick="addMetaDataEntryField()" style="width:auto;margin-top:10px;margin-left:80px;">+ MetaData</button>
         </span>
+    </div>
+`;
+
+document.querySelector('#app').innerHTML += `
+    <div class="input-box" id="delete-entry" style="margin-top:10px;">
+        <label for="deleteEntryName">Delete:</label>
+        <input class="input" id="deleteEntryName" type="text" placeholder="Enter UUID" size="40"/>
+        <button class="btn" onclick="deleteEntry()">Delete</button>
     </div>
 `;
 
@@ -291,6 +299,12 @@ window.insertEntry = async function () {
 }
 
 
+window.deleteEntry = function() {
+    const uuid = document.getElementById("deleteEntryName").value.trim();
+    DeleteKeyValue(uuid);
+    clearSuccessfulDelete();
+}
+
 window.clearResults = function () {
     updateResults();
     entryValueElement.value = '';
@@ -303,4 +317,8 @@ window.clearSuccessfulInputs = function () {
     while (metaDataDiv.firstChild) {
         metaDataDiv.removeChild(metaDataDiv.firstChild);
     }
+}
+
+window.clearSuccessfulDelete = function () {
+    document.getElementById("deleteEntryName").value = ''
 }
