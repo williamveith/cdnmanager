@@ -1,7 +1,7 @@
 import './style.css';
 import './app.css';
 
-import { GetEntryByName, GetEntryByValue, GetEntriesByValue, GetAllEntries, InsertKVEntryIntoDatabase } from '../wailsjs/go/database/Database';
+import { GetEntryByName, GetEntryByValue, GetEntriesByValue, GetAllEntries, InsertKVEntryIntoDatabase, DeleteName } from '../wailsjs/go/database/Database';
 import { InsertKVEntry, DeleteKeyValue } from '../wailsjs/go/session/CloudflareSession';
 
 document.querySelector('#app').innerHTML = `
@@ -299,9 +299,10 @@ window.insertEntry = async function () {
 }
 
 
-window.deleteEntry = function() {
+window.deleteEntry = async function() {
     const uuid = document.getElementById("deleteEntryName").value.trim();
-    DeleteKeyValue(uuid);
+    await DeleteKeyValue(uuid);
+    await DeleteName(uuid)
     clearSuccessfulDelete();
 }
 
