@@ -1,5 +1,14 @@
-table {
+.result {
     margin-top: 2.5vh;
+}
+
+th {
+    border-bottom: 1px #7DF9FF solid;
+    vertical-align: top;
+    padding: 5px;
+    padding-left: 5px;
+    text-align: center;
+    font-weight: bold;
 }
 
 td {
@@ -50,4 +59,9 @@ pre {
 .input-box .btn:hover {
     background-image: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
     color: #333333;
+}
+
+.indented {
+    margin-top:10px;
+    margin-left:250px;
 }

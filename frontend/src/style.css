@@ -21,6 +21,14 @@ body {
     url("assets/fonts/IBM_Plex_Mono/IBMPlexMono-Regular.woff2") format("woff2");
 }
 
+@font-face {
+    font-family: "IBMPlexMono";
+    font-style: normal;
+    font-weight: bold;
+    src: local(""),
+    url("assets/fonts/IBM_Plex_Mono/IBMPlexMono-Bold.woff2") format("woff2");
+}
+
 #app {
     height: 95vh;
     text-align: left;
