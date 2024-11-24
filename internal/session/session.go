@@ -105,6 +105,15 @@ func (cloudflareSession *CloudflareSession) WriteEntry(entry Entry) {
 	fmt.Println(resp)
 }
 
+func (cloudflareSession *CloudflareSession) InsertEntry(name string, value string, metadata string) {
+	newEntry := Entry{
+		Name:     name,
+		Metadata: metadata,
+		Value:    value,
+	}
+	cloudflareSession.WriteEntry(newEntry)
+}
+
 func (cloudflareSession *CloudflareSession) WriteEntries(entries []Entry) {
 	workersKVPairs := entriesToWorkersKVPairs(entries)
 	resp, err := cloudflareSession.api.WriteWorkersKVEntries(context.Background(), cloudflareSession.account_id, cloudflare.WriteWorkersKVEntriesParams{
