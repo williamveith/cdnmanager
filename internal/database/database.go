@@ -69,6 +69,15 @@ func (cdb *Database) InsertEntry(datavalues session.Entry) {
 	}
 }
 
+func (cdb *Database) InsertKVEntryIntoDatabase(name string, value string, metadata map[string]interface{}) {
+	newEntry := session.Entry{
+		Name:     name,
+		Metadata: metadata,
+		Value:    value,
+	}
+	cdb.InsertEntry(newEntry)
+}
+
 func (cdb *Database) InsertEntries(datavalues []session.Entry) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()

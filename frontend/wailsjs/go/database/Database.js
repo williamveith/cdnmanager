@@ -50,6 +50,10 @@ export function InsertEntry(arg1) {
   return window['go']['database']['Database']['InsertEntry'](arg1);
 }
 
+export function InsertKVEntryIntoDatabase(arg1, arg2, arg3) {
+  return window['go']['database']['Database']['InsertKVEntryIntoDatabase'](arg1, arg2, arg3);
+}
+
 export function Size() {
   return window['go']['database']['Database']['Size']();
 }
