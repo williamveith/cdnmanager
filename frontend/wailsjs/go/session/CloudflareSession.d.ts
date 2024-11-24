@@ -17,10 +17,10 @@ export function GetAllValues():Promise<Array<string>>;
 
 export function GetValue(arg1:string):Promise<string>;
 
-export function InsertEntry(arg1:string,arg2:string,arg3:string):Promise<void>;
+export function InsertKVEntry(arg1:string,arg2:string,arg3:{[key: string]: any}):Promise<cloudflare.Response>;
 
 export function Size():Promise<number|Array<cloudflare.StorageKey>>;
 
 export function WriteEntries(arg1:Array<session.Entry>):Promise<void>;
 
-export function WriteEntry(arg1:session.Entry):Promise<void>;
+export function WriteEntry(arg1:session.Entry):Promise<cloudflare.Response>;
