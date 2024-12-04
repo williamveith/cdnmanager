@@ -26,6 +26,6 @@ export function InsertEntries(arg1:Array<models.Entry>):Promise<void>;
 
 export function InsertEntry(arg1:models.Entry):Promise<void>;
 
-export function InsertKVEntryIntoDatabase(arg1:string,arg2:string,arg3:models.Metadata):Promise<void>;
+export function InsertKVEntryIntoDatabase(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function Size():Promise<number>;

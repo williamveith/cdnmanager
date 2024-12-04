@@ -104,3 +104,17 @@ pre {
     margin-top:10px;
     margin-left:100px;
 }
+
+.metadata-entry {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.jsonKey {
+    width: 200px;
+}
+
+.jsonValue {
+    width: 400px;
+}
