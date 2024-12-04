@@ -73,12 +73,6 @@ searchTypeElement.addEventListener('change', () => {
     }
 });
 
-
-function updateResults(content = '') {
-    resultElement.innerHTML = content;
-    clearResultsButton.style.display = content ? 'inline' : 'none';
-}
-
 window.searchEntry = async function () {
     const value = entryValueElement.value.trim();
     const searchType = searchTypeElement.value;
@@ -164,6 +158,72 @@ window.removeMetaDataEntryField = function () {
     const entryMetadata = document.getElementById("entryMetadata");
     entryMetadata.removeChild(entryMetadata.lastChild);
 };
+
+window.deleteEntry = async function() {
+    const uuid = document.getElementById("deleteEntryName").value.trim();
+    await DeleteKeyValue(uuid);
+    await DeleteName(uuid)
+    clearSuccessfulDelete();
+}
+
+window.clearResults = function () {
+    updateResults();
+    entryValueElement.value = '';
+};
+
+window.clearSuccessfulInputs = function () {
+    document.getElementById("insertEntryValue").value = '';
+    document.getElementById("insertEntryName").value = '';
+    const metaDataDiv = document.getElementById("entryMetadata")
+    while (metaDataDiv.firstChild) {
+        metaDataDiv.removeChild(metaDataDiv.firstChild);
+    }
+}
+
+window.clearSuccessfulDelete = function () {
+    document.getElementById("deleteEntryName").value = ''
+}
+
+window.generateUUID = function () {
+    const entryNameInput = document.getElementById('insertEntryName');
+    entryNameInput.value = crypto.randomUUID();
+}
+
+window.insertEntry = async function () {
+    const metadataEntries = document.querySelectorAll('.metadata-entry');
+    const jsonObject = {};
+
+    metadataEntries.forEach(entry => {
+        const key = entry.querySelector('.jsonKey').value.trim();
+        const value = entry.querySelector('.jsonValue').value.trim();
+        if (key && value) {
+            jsonObject[key] = value;
+        }
+    });
+
+    const metadata = jsonObject;
+    const value = document.getElementById("insertEntryValue").value.trim();
+    const name = document.getElementById("insertEntryName").value.trim();
+
+    try {
+        const response = await InsertKVEntry(name, value, metadata);
+        console.log(response);
+        if (response && response.success) {
+            await InsertKVEntryIntoDatabase(name, value, metadata);
+            clearSuccessfulInputs()
+            console.log('Entry successfully inserted into the database.');
+        } else {
+            console.error('Failed to insert entry into Cloudflare KV:', response.errors);
+        }
+    } catch (error) {
+        console.error('Failed to insert entry:', error);
+    }
+}
+
+function updateResults(content = '') {
+    resultElement.innerHTML = content;
+    clearResultsButton.style.display = content ? 'inline' : 'none';
+}
 
 function displayClipboardMessage(message) {
     const messageElement = document.createElement('div');
@@ -279,66 +339,4 @@ function getUUIDFromString(stringContainingUUID){
     const uuidPattern = /\b[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\b/;
     const match = stringContainingUUID.match(uuidPattern);
     return match ? match[0] : '';
-}
-
-window.generateUUID = function () {
-    const entryNameInput = document.getElementById('insertEntryName');
-    entryNameInput.value = crypto.randomUUID();
-}
-
-window.insertEntry = async function () {
-    const metadataEntries = document.querySelectorAll('.metadata-entry');
-    const jsonObject = {};
-
-    metadataEntries.forEach(entry => {
-        const key = entry.querySelector('.jsonKey').value.trim();
-        const value = entry.querySelector('.jsonValue').value.trim();
-        if (key && value) {
-            jsonObject[key] = value;
-        }
-    });
-
-    const metadata = jsonObject;
-    const value = document.getElementById("insertEntryValue").value.trim();
-    const name = document.getElementById("insertEntryName").value.trim();
-
-    try {
-        const response = await InsertKVEntry(name, value, metadata);
-        console.log(response);
-        if (response && response.success) {
-            await InsertKVEntryIntoDatabase(name, value, metadata);
-            clearSuccessfulInputs()
-            console.log('Entry successfully inserted into the database.');
-        } else {
-            console.error('Failed to insert entry into Cloudflare KV:', response.errors);
-        }
-    } catch (error) {
-        console.error('Failed to insert entry:', error);
-    }
-}
-
-
-window.deleteEntry = async function() {
-    const uuid = document.getElementById("deleteEntryName").value.trim();
-    await DeleteKeyValue(uuid);
-    await DeleteName(uuid)
-    clearSuccessfulDelete();
-}
-
-window.clearResults = function () {
-    updateResults();
-    entryValueElement.value = '';
-};
-
-window.clearSuccessfulInputs = function () {
-    document.getElementById("insertEntryValue").value = '';
-    document.getElementById("insertEntryName").value = '';
-    const metaDataDiv = document.getElementById("entryMetadata")
-    while (metaDataDiv.firstChild) {
-        metaDataDiv.removeChild(metaDataDiv.firstChild);
-    }
-}
-
-window.clearSuccessfulDelete = function () {
-    document.getElementById("deleteEntryName").value = ''
 }
