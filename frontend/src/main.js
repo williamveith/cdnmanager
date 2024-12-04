@@ -1,4 +1,3 @@
-import './style.css';
 import './app.css';
 
 import { GetEntryByName, GetEntryByValue, GetEntriesByValue, GetAllEntries, InsertKVEntryIntoDatabase, DeleteName } from '../wailsjs/go/database/Database';
@@ -93,7 +92,7 @@ window.searchEntry = async function () {
         let entries = [];
         switch (searchType) {
             case "GetEntryByName":
-                const entryByName = await GetEntryByName(value);
+                const entryByName = await GetEntryByName(getUUIDFromString(value));
                 if (entryByName?.Name) entries.push(entryByName);
                 break;
             case "GetEntryByValue":
@@ -205,7 +204,7 @@ function displayEntries(entries) {
 
         tableHTML += `
             <tr>
-                <td class="clickable">${entry.Name}</td>
+                <td class="hyperlink">${entry.Name}</td>
                 <td class="clickable">${entry.Value}</td>
                 <td class="clickable"><pre>${metadataFormatted}</pre></td>
             </tr>
@@ -221,6 +220,7 @@ function displayEntries(entries) {
 
     enableSorting();
     enableCopying();
+    enableUUIDLinkCopying();
 }
 
 function enableSorting() {
@@ -260,6 +260,25 @@ function enableCopying() {
             });
         });
     });
+}
+
+function enableUUIDLinkCopying(){
+    document.querySelectorAll('.hyperlink').forEach(td => {
+        td.addEventListener('click', () => {
+            const hyperlink = `https://cdn.williamveith.com/?id=${td.textContent.trim()}`
+            navigator.clipboard.writeText(hyperlink).then(() => {
+                displayClipboardMessage(`Copied: ${hyperlink}`);
+            }).catch(err => {
+                console.error('Error copying to clipboard:', err);
+            });
+        });
+    });
+}
+
+function getUUIDFromString(stringContainingUUID){
+    const uuidPattern = /\b[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\b/;
+    const match = stringContainingUUID.match(uuidPattern);
+    return match ? match[0] : '';
 }
 
 window.generateUUID = function () {

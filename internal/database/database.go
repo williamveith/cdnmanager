@@ -46,64 +46,6 @@ func (cdb *Database) DropTable() {
 	cdb.db.Exec(`DROP TABLE IF EXISTS records`)
 }
 
-func (cdb *Database) InsertEntry(datavalues session.Entry) {
-	cdb.lock.Lock()
-	defer cdb.lock.Unlock()
-
-	tx, err := cdb.db.Begin()
-	if err != nil {
-		fmt.Print("Failed To Begin Transaction:", err)
-	}
-	defer tx.Rollback()
-
-	stmt, _ := tx.Prepare(`
-		INSERT OR REPLACE INTO records (name, value, metadata)
-		VALUES (?, ?, ?)
-	`)
-	defer stmt.Close()
-	metadata := convertMetadataToString(datavalues.Metadata)
-	stmt.Exec(datavalues.Name, datavalues.Value, metadata)
-	err = tx.Commit()
-	if err != nil {
-		fmt.Print("Failed To Commit Transaction:", err)
-	}
-}
-
-func (cdb *Database) InsertKVEntryIntoDatabase(name string, value string, metadata map[string]interface{}) {
-	newEntry := session.Entry{
-		Name:     name,
-		Metadata: metadata,
-		Value:    value,
-	}
-	cdb.InsertEntry(newEntry)
-}
-
-func (cdb *Database) InsertEntries(datavalues []session.Entry) {
-	cdb.lock.Lock()
-	defer cdb.lock.Unlock()
-
-	tx, err := cdb.db.Begin()
-	if err != nil {
-		fmt.Print("Failed To Begin Transaction:", err)
-	}
-	defer tx.Rollback()
-
-	stmt, _ := tx.Prepare(`
-		INSERT OR REPLACE INTO records (name, value, metadata)
-		VALUES (?, ?, ?)
-	`)
-	defer stmt.Close()
-
-	for _, datavalue := range datavalues {
-		stmt.Exec(datavalue.Name, datavalue.Value, convertMetadataToString(datavalue.Metadata))
-	}
-
-	tx.Commit()
-	if err != nil {
-		fmt.Print("Failed To Commit Transaction:", err)
-	}
-}
-
 func (cdb *Database) GetEntryByName(name string) session.Entry {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
@@ -168,6 +110,64 @@ func (cdb *Database) GetAllEntries() []session.Entry {
 		})
 	}
 	return entries
+}
+
+func (cdb *Database) InsertEntry(datavalues session.Entry) {
+	cdb.lock.Lock()
+	defer cdb.lock.Unlock()
+
+	tx, err := cdb.db.Begin()
+	if err != nil {
+		fmt.Print("Failed To Begin Transaction:", err)
+	}
+	defer tx.Rollback()
+
+	stmt, _ := tx.Prepare(`
+		INSERT OR REPLACE INTO records (name, value, metadata)
+		VALUES (?, ?, ?)
+	`)
+	defer stmt.Close()
+	metadata := convertMetadataToString(datavalues.Metadata)
+	stmt.Exec(datavalues.Name, datavalues.Value, metadata)
+	err = tx.Commit()
+	if err != nil {
+		fmt.Print("Failed To Commit Transaction:", err)
+	}
+}
+
+func (cdb *Database) InsertKVEntryIntoDatabase(name string, value string, metadata map[string]interface{}) {
+	newEntry := session.Entry{
+		Name:     name,
+		Metadata: metadata,
+		Value:    value,
+	}
+	cdb.InsertEntry(newEntry)
+}
+
+func (cdb *Database) InsertEntries(datavalues []session.Entry) {
+	cdb.lock.Lock()
+	defer cdb.lock.Unlock()
+
+	tx, err := cdb.db.Begin()
+	if err != nil {
+		fmt.Print("Failed To Begin Transaction:", err)
+	}
+	defer tx.Rollback()
+
+	stmt, _ := tx.Prepare(`
+		INSERT OR REPLACE INTO records (name, value, metadata)
+		VALUES (?, ?, ?)
+	`)
+	defer stmt.Close()
+
+	for _, datavalue := range datavalues {
+		stmt.Exec(datavalue.Name, datavalue.Value, convertMetadataToString(datavalue.Metadata))
+	}
+
+	tx.Commit()
+	if err != nil {
+		fmt.Print("Failed To Commit Transaction:", err)
+	}
 }
 
 func (cdb *Database) DeleteName(key string) {

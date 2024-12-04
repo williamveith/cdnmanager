@@ -181,7 +181,6 @@ Handles the frontend logic, including user interactions, dynamic content renderi
 ### **Import Statements**
 
 ```javascript
-import './style.css';
 import './app.css';
 
 import { GetEntryByName, GetEntryByValue, GetEntriesByValue, GetAllEntries } from '../wailsjs/go/database/Database';
@@ -472,7 +471,7 @@ The HTML content is dynamically generated:
 - **Implement `insertEntry` Function**: The `insertEntry` function in `main.js` needs to be implemented to handle entry insertion.
 - **Environment Configuration**: The `.env` file must be configured with valid Cloudflare credentials.
 - **Error Handling**: Implement error handling for database and clipboard interactions.
-- **Styling**: Define styles in `style.css` and `app.css` to match UI requirements.
+- **Styling**: Define styles in `app.css` to match UI requirements.
 
 ## Docker Deployment
 
