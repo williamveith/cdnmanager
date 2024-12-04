@@ -17,7 +17,7 @@ export function GetAllValues():Promise<Array<string>>;
 
 export function GetValue(arg1:string):Promise<string>;
 
-export function InsertKVEntry(arg1:string,arg2:string,arg3:models.Metadata):Promise<cloudflare.Response>;
+export function InsertKVEntry(arg1:string,arg2:string,arg3:string):Promise<cloudflare.Response>;
 
 export function Size():Promise<number|Array<cloudflare.StorageKey>>;
 

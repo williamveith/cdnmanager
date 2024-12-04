@@ -141,10 +141,11 @@ func (cdb *Database) InsertEntry(datavalues models.Entry) {
 	}
 }
 
-func (cdb *Database) InsertKVEntryIntoDatabase(name string, value string, metadata models.Metadata) {
+func (cdb *Database) InsertKVEntryIntoDatabase(name string, value string, metadata string) {
+	Metadata, _ := models.MetadataFromJSONString(metadata)
 	newEntry := models.Entry{
 		Name:     name,
-		Metadata: metadata,
+		Metadata: Metadata,
 		Value:    value,
 	}
 	cdb.InsertEntry(newEntry)

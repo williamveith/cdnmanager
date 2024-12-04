@@ -120,10 +120,11 @@ func (cloudflareSession *CloudflareSession) WriteEntry(entry models.Entry) (resp
 	return resp
 }
 
-func (cloudflareSession *CloudflareSession) InsertKVEntry(name string, value string, metadata models.Metadata) (resp cloudflare.Response) {
+func (cloudflareSession *CloudflareSession) InsertKVEntry(name string, value string, metadata string) (resp cloudflare.Response) {
+	Metadata, _ := models.MetadataFromJSONString(metadata)
 	newEntry := models.Entry{
 		Name:     name,
-		Metadata: metadata,
+		Metadata: Metadata,
 		Value:    value,
 	}
 	return cloudflareSession.WriteEntry(newEntry)
