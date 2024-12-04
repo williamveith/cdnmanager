@@ -78,11 +78,11 @@ window.updateInsertEntry = function (entryMethod = undefined) {
                 <button class="btn" onclick="insertEntry()">Insert</button>
                 <div id="entryMetadata">
                     <div class="indented metadata-entry">
-                        <input class="input jsonKey" type="text" value="metadata_name" readonly style="margin-right: 5px;">
+                        <input class="input jsonKey" type="text" value="name" readonly style="margin-right: 5px;">
                         <input class="input jsonValue" type="text" placeholder="Resource Title" required>
                     </div>
                     <div class="indented metadata-entry">
-                        <input class="input jsonKey" type="text" value="metadata_external" readonly style="margin-right: 5px;">
+                        <input class="input jsonKey" type="text" value="external" readonly style="margin-right: 5px;">
                         <select  class="input jsonValue" id="externalMetadataToggle" style="width:422px;" required  onchange="updateExternalInternalMetadataSelector()">
                             <option value="default" selected disabled>Resource Is External</option>
                             <option value="true">True</option>
@@ -90,23 +90,23 @@ window.updateInsertEntry = function (entryMethod = undefined) {
                         </select>
                     </div>
                     <div class="indented metadata-entry">
-                        <input class="input jsonKey" type="text" value="metadata_mimetype" readonly style="margin-right: 5px;">
+                        <input class="input jsonKey" type="text" value="mimetype" readonly style="margin-right: 5px;">
                         <input class="input jsonValue" type="text" placeholder="Resource MimeType" required>
                     </div>
                     <div class="indented metadata-entry">
-                        <input class="input jsonKey" type="text" value="metadata_location" readonly style="margin-right: 5px;">
+                        <input class="input jsonKey" type="text" value="location" readonly style="margin-right: 5px;">
                         <input class="input jsonValue" type="text" placeholder="Resource Location (domain or owner email)" required>
                     </div>
                     <div class="indented metadata-entry">
-                        <input class="input jsonKey" type="text" value="metadata_description" readonly style="margin-right: 5px;">
+                        <input class="input jsonKey" type="text" value="description" readonly style="margin-right: 5px;">
                         <input class="input jsonValue" type="text" placeholder="Resource Description">
                     </div>
                     <div id="cloud-storage-id-div" class="indented metadata-entry" style="display:none;">
-                        <input class="input jsonKey" type="text" value="metadata_cloud_storage_id" readonly style="margin-right:-5px;">
+                        <input class="input jsonKey" type="text" value="cloud_storage_id" readonly style="margin-right:-5px;">
                         <input class="input jsonValue" type="text" placeholder="Resource Cloud Storage ID">
                     </div>
                     <div  id="md5checksum-div" class="indented metadata-entry" style="display:none;">
-                        <input class="input jsonKey" type="text" value="metadata_md5Checksum" readonly style="margin-right:-5px;">
+                        <input class="input jsonKey" type="text" value="md5Checksum" readonly style="margin-right:-5px;">
                         <input class="input jsonValue" type="text" placeholder="Resource MD5 Checksum">
                     </div>
                 </div>
@@ -243,11 +243,15 @@ window.insertEntry = async function () {
 
         if (valueInput.tagName.toLowerCase() === 'select') {
             value = valueInput.options[valueInput.selectedIndex].value;
+            // Convert 'external' field to boolean
+            if (key === 'external') {
+                value = (value === 'true');
+            }
         } else {
             value = valueInput.value.trim();
         }
 
-        if (key && value && value !== 'default') {
+        if (key && value !== '' && value !== 'default') {
             metadata[key] = value;
         }
     });
@@ -261,8 +265,8 @@ window.insertEntry = async function () {
         return;
     }
 
-    // Check if 'metadata_external' is selected
-    if (metadata['metadata_external'] === undefined || metadata['metadata_external'] === 'default') {
+    // Check if 'external' is selected
+    if (metadata['external'] === undefined || metadata['external'] === 'default') {
         alert("Please select whether the resource is external.");
         return;
     }

@@ -2,7 +2,6 @@ package database
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -133,7 +132,7 @@ func (cdb *Database) InsertEntry(datavalues models.Entry) {
 		VALUES (?, ?, ?)
 	`)
 	defer stmt.Close()
-	metadata := convertMetadataToString(datavalues.Metadata)
+	metadata, _ := datavalues.Metadata.ToJSONString()
 	stmt.Exec(datavalues.Name, datavalues.Value, metadata)
 	err = tx.Commit()
 	if err != nil {
@@ -168,7 +167,8 @@ func (cdb *Database) InsertEntries(datavalues []models.Entry) {
 	defer stmt.Close()
 
 	for _, datavalue := range datavalues {
-		stmt.Exec(datavalue.Name, datavalue.Value, convertMetadataToString(datavalue.Metadata))
+		metadata, _ := datavalue.Metadata.ToJSONString()
+		stmt.Exec(datavalue.Name, datavalue.Value, metadata)
 	}
 
 	tx.Commit()
@@ -202,21 +202,6 @@ func (cdb *Database) DeleteEntry(entry models.Entry) {
 func (cdb *Database) DeleteEntries(entries []models.Entry) {
 	for _, entry := range entries {
 		cdb.DeleteEntry(entry)
-	}
-}
-
-func convertMetadataToString(metadata interface{}) string {
-	switch v := metadata.(type) {
-	case string:
-		return v
-	case []byte:
-		return string(v)
-	default:
-		jsonBytes, err := json.Marshal(v)
-		if err != nil {
-			return "Error converting metadata to string"
-		}
-		return string(jsonBytes)
 	}
 }
 
