@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"cdnmanager/internal/session"
+	"cdnmanager/pkg/session"
 
 	_ "github.com/mattn/go-sqlite3"
 )

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"cdnmanager/internal/database"
-	"cdnmanager/internal/session"
+	"cdnmanager/pkg/database"
+	"cdnmanager/pkg/session"
 
 	"github.com/joho/godotenv"
 	"github.com/wailsapp/wails/v2"
