@@ -68,11 +68,35 @@ export namespace cloudflare {
 
 }
 
-export namespace session {
+export namespace models {
 	
+	export class Metadata {
+	    name: string;
+	    external: boolean;
+	    mimetype: string;
+	    location: string;
+	    cloud_storage_id?: string;
+	    md5Checksum?: string;
+	    description?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Metadata(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.external = source["external"];
+	        this.mimetype = source["mimetype"];
+	        this.location = source["location"];
+	        this.cloud_storage_id = source["cloud_storage_id"];
+	        this.md5Checksum = source["md5Checksum"];
+	        this.description = source["description"];
+	    }
+	}
 	export class Entry {
 	    Name: string;
-	    Metadata: any;
+	    Metadata: Metadata;
 	    Value: string;
 	
 	    static createFrom(source: any = {}) {
@@ -82,9 +106,27 @@ export namespace session {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.Name = source["Name"];
-	        this.Metadata = source["Metadata"];
+	        this.Metadata = this.convertValues(source["Metadata"], Metadata);
 	        this.Value = source["Value"];
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }

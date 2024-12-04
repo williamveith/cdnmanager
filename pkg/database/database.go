@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"cdnmanager/pkg/session"
+	"cdnmanager/pkg/models"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -46,12 +46,13 @@ func (cdb *Database) DropTable() {
 	cdb.db.Exec(`DROP TABLE IF EXISTS records`)
 }
 
-func (cdb *Database) GetEntryByName(name string) session.Entry {
+func (cdb *Database) GetEntryByName(name string) models.Entry {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
-	var value, metadata string
-	_ = cdb.db.QueryRow(`SELECT value, metadata FROM records WHERE name = ?`, name).Scan(&value, &metadata)
-	entry := session.Entry{
+	var value, metadataStr string
+	_ = cdb.db.QueryRow(`SELECT value, metadata FROM records WHERE name = ?`, name).Scan(&value, &metadataStr)
+	metadata, _ := models.MetadataFromJSONString(metadataStr)
+	entry := models.Entry{
 		Name:     name,
 		Metadata: metadata,
 		Value:    value,
@@ -59,12 +60,13 @@ func (cdb *Database) GetEntryByName(name string) session.Entry {
 	return entry
 }
 
-func (cdb *Database) GetEntryByValue(value string) session.Entry {
+func (cdb *Database) GetEntryByValue(value string) models.Entry {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
-	var name, metadata string
-	_ = cdb.db.QueryRow(`SELECT name, metadata FROM records WHERE value = ?`, value).Scan(&name, &metadata)
-	entry := session.Entry{
+	var name, metadataStr string
+	_ = cdb.db.QueryRow(`SELECT name, metadata FROM records WHERE value = ?`, value).Scan(&name, &metadataStr)
+	metadata, _ := models.MetadataFromJSONString(metadataStr)
+	entry := models.Entry{
 		Name:     name,
 		Metadata: metadata,
 		Value:    value,
@@ -72,18 +74,20 @@ func (cdb *Database) GetEntryByValue(value string) session.Entry {
 	return entry
 }
 
-func (cdb *Database) GetEntriesByValue(value string) []session.Entry {
+func (cdb *Database) GetEntriesByValue(value string) []models.Entry {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
 	rows, _ := cdb.db.Query(`SELECT name, value, metadata FROM records WHERE value = ?`, value)
 	defer rows.Close()
 
-	var entries []session.Entry
+	var entries []models.Entry
 	for rows.Next() {
-		var name, metadata string
-		rows.Scan(&name, &metadata)
-		entries = append(entries, session.Entry{
+		var name, valueStr, metadataStr string
+		rows.Scan(&name, &valueStr, &metadataStr)
+
+		metadata, _ := models.MetadataFromJSONString(metadataStr)
+		entries = append(entries, models.Entry{
 			Name:     name,
 			Metadata: metadata,
 			Value:    value,
@@ -92,27 +96,29 @@ func (cdb *Database) GetEntriesByValue(value string) []session.Entry {
 	return entries
 }
 
-func (cdb *Database) GetAllEntries() []session.Entry {
+func (cdb *Database) GetAllEntries() []models.Entry {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
 	rows, _ := cdb.db.Query(`SELECT name, value, metadata FROM records`)
 	defer rows.Close()
 
-	var entries []session.Entry
+	var entries []models.Entry
 	for rows.Next() {
-		var name, value, metadata string
-		rows.Scan(&name, &value, &metadata)
-		entries = append(entries, session.Entry{
+		var name, valueStr, metadataStr string
+		rows.Scan(&name, &valueStr, &metadataStr)
+
+		metadata, _ := models.MetadataFromJSONString(metadataStr)
+		entries = append(entries, models.Entry{
 			Name:     name,
-			Value:    value,
+			Value:    valueStr,
 			Metadata: metadata,
 		})
 	}
 	return entries
 }
 
-func (cdb *Database) InsertEntry(datavalues session.Entry) {
+func (cdb *Database) InsertEntry(datavalues models.Entry) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
@@ -135,8 +141,8 @@ func (cdb *Database) InsertEntry(datavalues session.Entry) {
 	}
 }
 
-func (cdb *Database) InsertKVEntryIntoDatabase(name string, value string, metadata map[string]interface{}) {
-	newEntry := session.Entry{
+func (cdb *Database) InsertKVEntryIntoDatabase(name string, value string, metadata models.Metadata) {
+	newEntry := models.Entry{
 		Name:     name,
 		Metadata: metadata,
 		Value:    value,
@@ -144,7 +150,7 @@ func (cdb *Database) InsertKVEntryIntoDatabase(name string, value string, metada
 	cdb.InsertEntry(newEntry)
 }
 
-func (cdb *Database) InsertEntries(datavalues []session.Entry) {
+func (cdb *Database) InsertEntries(datavalues []models.Entry) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
@@ -188,11 +194,11 @@ func (cdb *Database) DeleteNames(names []string) {
 	cdb.db.Exec(query, args...)
 }
 
-func (cdb *Database) DeleteEntry(entry session.Entry) {
+func (cdb *Database) DeleteEntry(entry models.Entry) {
 	cdb.DeleteName(entry.Name)
 }
 
-func (cdb *Database) DeleteEntries(entries []session.Entry) {
+func (cdb *Database) DeleteEntries(entries []models.Entry) {
 	for _, entry := range entries {
 		cdb.DeleteEntry(entry)
 	}
