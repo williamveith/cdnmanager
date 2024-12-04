@@ -35,11 +35,11 @@ document.querySelector('#app').innerHTML += `
 window.updateExternalInternalMetadataSelector = function () {
     const selectedValue = document.getElementById("externalMetadataToggle").value;
     const cloudStorageDiv = document.getElementById("cloud-storage-id-div");
-    const md5ChecksumDiv =  document.getElementById("md5checksum-div");
-    switch(selectedValue) {
+    const md5ChecksumDiv = document.getElementById("md5checksum-div");
+    switch (selectedValue) {
         case "true":
             cloudStorageDiv.style.display = 'none';
-            md5ChecksumDiv.style.display = 'none';            
+            md5ChecksumDiv.style.display = 'none';
             break;
         case "false":
         default:
@@ -116,7 +116,7 @@ window.updateInsertEntry = function (entryMethod = undefined) {
         case "fromFile":
             dynamicInsertEntryDiv.innerHTML = `
             <div class="input-box" id="file-insert-entry" style="margin-top:10px;margin-left:75px;">
-                <input class="input" id="insertFile" type="file" accept=".csv" style="border:0px;background-color:transparent;"/>
+                <input class="input" id="insertFile" type="file" accept=".csv" style="border:0px;background-color:transparent;" onchange="readFileContent(this)"/>
                 <button class="btn" onclick="insertEntryFromFile()">Insert</button>
             </div>
         `;
@@ -141,7 +141,7 @@ window.updateInsertEntry = function (entryMethod = undefined) {
 };
 
 document.querySelector('#app').innerHTML += `
-    <div class="input-box" id="delete-entry" style="margin-top:10px;">
+    <div class="input-box" id="delete-entry" style="margin-top:20px;">
         <label for="deleteEntryName">Delete:</label>
         <input class="input" id="deleteEntryName" type="text" placeholder="Enter UUID" size="40"/>
         <button class="btn" onclick="deleteEntry()">Delete</button>
@@ -199,8 +199,7 @@ window.searchEntry = async function () {
             updateResults("No entries found for the provided value.");
         }
     } catch (err) {
-        console.error(err);
-        updateResults("An error occurred while fetching the entries.");
+        updateResults(`An error occurred while fetching the entries. ${err}`);
     }
 };
 
@@ -276,25 +275,116 @@ window.insertEntry = async function () {
         // InsertKVEntryIntoDatabase to add to local database
         const metadataString = JSON.stringify(metadata)
         const response = await InsertKVEntry(name, value, metadataString);
-        console.log(response);
         if (response && response.success) {
             await InsertKVEntryIntoDatabase(name, value, metadataString);
             updateInsertEntry("");
-            console.log('Entry successfully inserted into the database.');
+            alert(`Successfully inserted ${metadata["name"]}`)
         } else {
-            console.error('Failed to insert entry:', response.errors);
             alert('Failed to insert entry: ' + response.errors.join(', '));
         }
     } catch (error) {
-        console.error('Failed to insert entry:', error);
-        alert('An error occurred while inserting the entry.');
+        alert(`An error occurred while inserting the entry. ${error}`);
     }
 };
 
+window.insertFromFileContent = null;
+window.insertFromFileContentResolver = null;
+
+window.clearInsertFromFile = function(){
+    window.insertFromFileContent = null;
+    document.getElementById('insertFile').value = '';
+}
+
+window.readFileContent = function (input) {
+    const file = input.files[0];
+    if (file) {
+        const reader = new FileReader();
+        const fileContentPromise = new Promise((resolve) => {
+            window.insertFromFileContentResolver = resolve;
+        });
+
+        reader.onload = function (e) {
+            window.insertFromFileContent = e.target.result;
+            if (window.insertFromFileContentResolver) {
+                window.insertFromFileContentResolver(window.insertFromFileContent);
+            }
+        };
+
+        reader.readAsText(file);
+        return fileContentPromise;
+    } else {
+        return Promise.reject("No file selected");
+    }
+};
 
 window.insertEntryFromFile = async function () {
-    console.log("stub function insertEntryFromFile")
-}
+    const content = window.insertFromFileContent || await window.readFileContent(document.getElementById("insertFile"));
+    if (!content) return;
+
+    const lines = content.trim().split('\n');
+    if (lines.length < 2) return; // No data to process
+
+    const headers = lines[0].split(',').map(header => header.trim().replace(/\r/g, ''));
+
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.trim()) continue; // Skip empty lines
+        const values = line.split(',');
+        const rowData = {};
+        for (let j = 0; j < headers.length; j++) {
+            rowData[headers[j]] = values[j] ? values[j].trim().replace(/\r/g, '') : '';
+        }
+
+        // Build metadata object
+        const metadata = {};
+
+        for (const key in rowData) {
+            if (key.startsWith('metadata_')) {
+                const metaKey = key.replace('metadata_', '');
+                let value = rowData[key];
+                // Handle 'external' field conversion and ignore empty/default values
+                if (value !== '') {
+                    if (metaKey === 'external') {
+                        value = (value === 'true');
+                    }
+                    metadata[metaKey] = value;
+                }
+            }
+        }
+
+        const name = rowData['name'] ? rowData['name'].trim() : '';
+        const value = rowData['value'] ? rowData['value'].trim() : '';
+
+        // Validate required fields
+        if (!name || !value) {
+            alert("Please provide both Name and Value.");
+            return;
+        }
+
+        // Check if 'external' is selected
+        if (metadata['external'] === undefined) {
+            alert("Please select whether the resource is external.");
+            return;
+        }
+
+        try {
+            // InsertKVEntry to add to Cloudflare
+            // InsertKVEntryIntoDatabase to add to local database
+            const metadataString = JSON.stringify(metadata);
+            const response = await InsertKVEntry(name, value, metadataString);
+            if (response && response.success) {
+                await InsertKVEntryIntoDatabase(name, value, metadataString);
+                alert(`Successfully inserted ${metadata["name"]}`)
+                clearInsertFromFile();
+            } else {
+                alert('Failed to insert entry: ' + response.errors.join(', '));
+            }
+        } catch (error) {
+            alert('An error occurred while inserting the entry.');
+        }
+    }
+};
+
 
 function updateResults(content = '') {
     resultElement.innerHTML = content;
@@ -392,7 +482,7 @@ function enableCopying() {
             navigator.clipboard.writeText(td.textContent.trim()).then(() => {
                 displayClipboardMessage(`Copied: ${td.textContent.trim()}`);
             }).catch(err => {
-                console.error('Error copying to clipboard:', err);
+                alert(`Error copying to clipboard: ${err}`)
             });
         });
     });
@@ -405,7 +495,7 @@ function enableUUIDLinkCopying() {
             navigator.clipboard.writeText(hyperlink).then(() => {
                 displayClipboardMessage(`Copied: ${hyperlink}`);
             }).catch(err => {
-                console.error('Error copying to clipboard:', err);
+                alert(`Error copying to clipboard: ${err}`)
             });
         });
     });
