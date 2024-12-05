@@ -114,7 +114,7 @@ Contains predefined fields for entry metadata.
     }
     ```
 
-#### **Functions**
+#### **metadata Functions**
 
 - **Serialization Methods**
 
@@ -126,7 +126,7 @@ Contains predefined fields for entry metadata.
 
 Handles interactions with the Cloudflare API.
 
-#### **Structs**
+#### **session Structs**
 
 - **`CloudflareSession`**
 
@@ -141,7 +141,7 @@ Manages the session with the Cloudflare API.
     }
     ```
 
-#### **Functions**
+#### **session Functions**
 
 - **Initialization**
 
@@ -173,7 +173,7 @@ Manages the session with the Cloudflare API.
 
 Handles interactions with the local SQLite3 database.
 
-#### **Structs**
+#### **database Structs**
 
 - **`Database`**
 
@@ -187,7 +187,7 @@ Manages the connection and operations on the SQLite database.
     }
     ```
 
-#### **Functions**
+#### **database Functions**
 
 - **Initialization**
 
@@ -222,7 +222,7 @@ Manages the connection and operations on the SQLite database.
 
   - **`Size() int`**: Returns the total number of entries.
 
-### **Notes**
+### **Additional Notes**
 
 - **Synchronization**: The `SyncFromCloudflare()` function ensures that the local database mirrors the Cloudflare Workers KV storage.
 - **Thread Safety**: The database operations use a mutex lock to ensure thread safety during concurrent access.
