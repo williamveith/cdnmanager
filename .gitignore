@@ -6,4 +6,4 @@ bin/*
 build/
 node_modules
 frontend/dist
-frontend/wailsjs/
+frontend/wailsjs
