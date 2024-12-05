@@ -1,10 +1,16 @@
+:root {
+    --border-style: 1px solid #7DF9FF;
+    --input-background: rgba(255, 255, 255, 1);
+}
+
+
 * {
     font-family: "IBMPlexMono", -apple-system, BlinkMacSystemFont, "DejaVu Sans Mono", "Menlo",
     "Consolas", "Liberation Mono", "Monaco", "Fira Mono", "Lucida Console",monospace;
 }
 
 html {
-    background-color: #2d076b;
+    background-color: #2d076b9d;
     text-align: left;
     color: white;
 }
@@ -42,7 +48,7 @@ body {
 }
 
 th {
-    border-bottom: 1px #7DF9FF solid;
+    border-bottom: var(--border-style);
     vertical-align: top;
     padding: 5px;
     padding-left: 5px;
@@ -51,7 +57,7 @@ th {
 }
 
 td {
-    border: 1px #7DF9FF solid;
+    border: var(--border-style);
     vertical-align: top;
     padding: 5px;
     padding-left: 5px;
@@ -66,22 +72,22 @@ pre {
 .input-box select {
     height: 30px;
     line-height: 30px;
-    border: 1px #7DF9FF solid;
+    border: var(--border-style);
     border-radius: 3px;
     outline: none;
     padding: 0 10px;
-    background-color: rgba(240, 240, 240, 1);
+    background-color: var(--input-background);
     -webkit-font-smoothing: antialiased;
 }
 
 .input-box .input:hover,
 .input-box select:hover {
-    background-color: rgba(255, 255, 255, 1);
+    background-color: var(--input-background);
 }
 
 .input-box .input:focus,
 .input-box select:focus {
-    background-color: rgba(255, 255, 255, 1);
+    background-color: var(--input-background);
 }
 
 .input-box .btn {
@@ -96,7 +102,7 @@ pre {
 }
 
 .input-box .btn:hover {
-    background-image: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
+    background-image: linear-gradient(to top, #cfd9df 0%, #2e86b682 100%);
     color: #333333;
 }
 
