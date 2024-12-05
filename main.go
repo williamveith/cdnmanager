@@ -24,7 +24,7 @@ var embeddedDBFile embed.FS
 //go:embed all:frontend/dist
 var assets embed.FS
 
-//go:embed build/appicon.png
+//go:embed frontend/src/assets/img/appicon.png
 var icon []byte
 
 //go:embed .env
