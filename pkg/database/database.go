@@ -3,6 +3,8 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"log"
+	"os"
 	"strings"
 	"sync"
 
@@ -22,6 +24,31 @@ func NewDatabase(dbName string) *Database {
 
 	return &Database{
 		dbName: dbName,
+		db:     db,
+	}
+}
+
+func NewDatabaseFromBytes(dbBytes []byte) *Database {
+	// Create a temporary file
+	tmpFile, err := os.CreateTemp("", "*.sqlite3")
+	if err != nil {
+		log.Fatalf("Failed to create temporary file for database: %v", err)
+	}
+	defer tmpFile.Close()
+
+	// Write the embedded database bytes to the temporary file
+	if _, err := tmpFile.Write(dbBytes); err != nil {
+		log.Fatalf("Failed to write database bytes to temporary file: %v", err)
+	}
+
+	// Open the SQLite database from the temporary file
+	db, err := sql.Open("sqlite3", tmpFile.Name())
+	if err != nil {
+		log.Fatalf("Failed to open SQLite database: %v", err)
+	}
+
+	return &Database{
+		dbName: tmpFile.Name(),
 		db:     db,
 	}
 }

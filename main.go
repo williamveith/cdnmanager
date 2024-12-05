@@ -18,6 +18,9 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
+//go:embed data/cdn.sqlite3
+var embeddedDBFile embed.FS
+
 //go:embed all:frontend/dist
 var assets embed.FS
 
@@ -55,7 +58,13 @@ func SyncFromCloudflare() {
 
 func main() {
 	loadEmbeddedEnv()
-	cdnDB = database.NewDatabase("data/cdn.sqlite3")
+	dbBytes, embederror := embeddedDBFile.ReadFile("data/cdn.sqlite3")
+	if embederror != nil {
+		fmt.Println("Failed to read embedded database:", embederror)
+		return
+	}
+	cdnDB = database.NewDatabaseFromBytes(dbBytes)
+
 	cloudflareSession = session.NewCloudflareSession()
 	SyncFromCloudflare()
 
