@@ -3,7 +3,8 @@
 bin/*
 *.sqlite3
 *.db
-build/
+build/*
+!build/appicon.png
 node_modules
 frontend/dist
 frontend/wailsjs
