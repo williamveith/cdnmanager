@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"sync"
 
@@ -19,6 +18,10 @@ type Database struct {
 	lock   sync.Mutex
 }
 
+func (cdb *Database) GetFileName() string {
+	return cdb.dbName
+}
+
 func NewDatabase(dbName string) *Database {
 	db, _ := sql.Open("sqlite3", dbName)
 
@@ -28,15 +31,8 @@ func NewDatabase(dbName string) *Database {
 	}
 }
 
-func NewDatabaseFromSchema(schema []byte) *Database {
-	tmpFile, err := os.CreateTemp("", "*.sqlite3")
-	if err != nil {
-		log.Fatalf("Failed to create temporary file for database: %v", err)
-	}
-	tmpFileName := tmpFile.Name()
-	tmpFile.Close()
-
-	db, err := sql.Open("sqlite3", tmpFileName)
+func NewDatabaseFromSchema(dbName string, schema []byte) *Database {
+	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
 		log.Fatalf("Failed to open SQLite database: %v", err)
 	}
@@ -48,7 +44,7 @@ func NewDatabaseFromSchema(schema []byte) *Database {
 	}
 
 	return &Database{
-		dbName: tmpFileName,
+		dbName: dbName,
 		db:     db,
 	}
 }
