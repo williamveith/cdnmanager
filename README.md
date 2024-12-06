@@ -36,7 +36,7 @@ This setup is also structured to make the next phase easier to implement: adding
 4. **Build Application**:
 
     ```bash
-    make build
+    make
     ```
 
    This will clean the build directory, compile the project, and generate the binary.
