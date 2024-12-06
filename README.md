@@ -25,15 +25,13 @@ This setup is also structured to make the next phase easier to implement: adding
    ```bash
    git clone https://github.com/williamveith/cdnmanager.git
    cd cdnmanager
+   mv template.env .env;
    ```
 
-   Clones the remote repository containing the application source code and enters the root directory of the repository.
+   Clones the remote repository containing the application source code, enters the root directory of the repository, and creates your .env file.
 
 3. **Add Cloudflare Credentials**
-    1. Fill out the `template.env` file using your Cloudflare account details  
-    2. Rename the `template.env` file to `.env`
-
-    This file will be embedded into the application during the build process, allowing the application to make API calls to Cloudflare.
+   Fill out the `.env` file with your Cloudflare account details. This file will be embedded into the application during the build process, allowing the application to make API calls to Cloudflare.
 
 4. **Build Application**:
 
