@@ -6,15 +6,47 @@ APP_BUNDLE  := build/bin/$(BINARY_NAME).app/Contents/MacOS/$(BINARY_NAME)
 # -trimpath removes file system paths
 WAILS_BUILD_FLAGS := -ldflags "-s -w" -trimpath
 
-# If your project requires specific Go build tags, you can add them here:
-# Example: WAILS_BUILD_FLAGS += -tags "production"
-# WAILS_BUILD_FLAGS += -tags "production"
-
 # Default target: build the app
-all: build
+all: check build
+
+check:
+	@echo "Prebuild Check:"
+	@if [ -f .env ]; then \
+		echo "  .env File Found      : Success"; \
+	else \
+		if [ -f template.env ]; then \
+			echo "Build Failed: Fill out template.env with your Cloudflare credentials and rename template.env to .env"; \
+		else \
+			echo "Build Failed: Missing .env and template.env. Please create one."; \
+		fi; \
+		exit 1; \
+	fi
+
+	@if which go > /dev/null; then \
+		echo "  Go Installed         : Success (Version $$(go version | awk '{print $$3}'))"; \
+	else \
+		echo "Build Failed: You are missing Go, which is required to build the app. Follow this link to learn how to install it: https://go.dev/dl/"; \
+		exit 1; \
+	fi
+
+	@if which npm > /dev/null; then \
+		echo "  NPM Installed        : Success (Version $$(npm --version))"; \
+	else \
+		echo "Build Failed: You are missing NPM, which is required to build the app. Follow this link to learn how to install it: https://nodejs.org/en/download/package-manager"; \
+		exit 1; \
+	fi
+
+	@if which wails > /dev/null; then \
+		WAILS_VERSION=$$(wails version | head -n 1 | awk '{print $$1}'); \
+		echo "  Wails Installed      : Success (Version $$WAILS_VERSION)"; \
+	else \
+		echo "Build Failed: You are missing Wails, which is required to build the app. Follow this link to learn how to install it: https://wails.io/docs/gettingstarted/installation#installing-wails"; \
+		exit 1; \
+	fi
+	@echo "_______________________________________________________"
 
 # Build the Wails application
-build:
+build: check
 	@echo "Building Wails application..."
 	@if [ "$(shell uname -s)" = "Darwin" ] && [ "$(shell uname -m)" = "arm64" ]; then \
 		echo "Skipping UPX compression for macOS arm64"; \
@@ -25,7 +57,7 @@ build:
 	@echo "Build complete: $(BINARY_NAME)"
 
 # Run the Wails dev server for testing in a live environment
-test:
+test: check
 	@echo "Starting Wails dev server for testing..."
 	wails dev
 
@@ -35,4 +67,4 @@ run: build
 	./$(BINARY_NAME)
 
 # PHONY targets are not associated with real files
-.PHONY: all build run
+.PHONY: all check build test run
