@@ -33,6 +33,11 @@ clean:
 	@rm -f $(BINARY_NAME)
 	@echo "Clean complete."
 
+# Run the Wails dev server for testing in a live environment
+test:
+	@echo "Starting Wails dev server for testing..."
+	wails dev
+
 # Run the application after building
 run: build
 	@echo "Running application..."

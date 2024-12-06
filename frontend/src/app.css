@@ -61,11 +61,22 @@ td {
     vertical-align: top;
     padding: 5px;
     padding-left: 5px;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 pre {
     vertical-align: top;
     margin: 0px;
+}
+
+span.glyph.sort-trigger {
+    font-size: 16px;
+}
+
+span.glyph.collapse-trigger {
+    font-size: 20px;
 }
 
 .input-box .input, 

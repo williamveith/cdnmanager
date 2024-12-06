@@ -290,7 +290,7 @@ window.insertEntry = async function () {
 window.insertFromFileContent = null;
 window.insertFromFileContentResolver = null;
 
-window.clearInsertFromFile = function(){
+window.clearInsertFromFile = function () {
     window.insertFromFileContent = null;
     document.getElementById('insertFile').value = '';
 }
@@ -411,28 +411,59 @@ function displayClipboardMessage(message) {
 
 function displayEntries(entries) {
     let tableHTML = `
-        <table id="resultTable" style="margin-bottom:10px;">
+        <table id="resultTable" style="margin-bottom:10px;table-layout:fixed; width:100%;">
+            <colgroup>
+                <col style="width:375px;">
+                <col style="width:400px;">
+                <col style="width:400px;">
+                <col style="width:250px;">
+                <col style="width:250px;">
+                <col style="width:350px;">
+                <col style="width:320px;">
+                <col style="width:400px;">
+            </colgroup>
             <thead>
                 <tr>
-                    <th data-column="Name" class="sortable">Name</th>
-                    <th data-column="Value" class="sortable">Value</th>
-                    <th data-column="Metadata">Metadata</th>
+                    <th data-column="UUID" class="sortable">ID
+                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    </th>
+                    <th data-column="Value" class="sortable">Value
+                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    </th>
+                    <th data-column="Name" class="sortable">Name
+                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    </th>
+                    <th data-column="MimeType" class="sortable">Mime Type
+                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    </th>
+                    <th data-column="Location" class="sortable">Location
+                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    </th>
+                    <th data-column="CloudStorageId" class="sortable">Cloud Storage ID
+                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    </th>
+                    <th data-column="MD5Checksum" class="sortable">MD5 Checksum
+                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    </th>
+                    <th data-column="Description" class="sortable">Description
+                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    </th>
                 </tr>
             </thead>
             <tbody>
     `;
 
     entries.forEach(entry => {
-        const metadataObject = entry.Metadata;
-        const metadataFormatted = Object.entries(metadataObject)
-            .map(([key, value]) => `${key}: ${value}`)
-            .join('\n');
-
         tableHTML += `
             <tr>
                 <td class="hyperlink">${entry.Name}</td>
                 <td class="clickable">${entry.Value}</td>
-                <td class="clickable"><pre>${metadataFormatted}</pre></td>
+                <td class="clickable">${entry.Metadata?.name ?? ''}</td>
+                <td class="clickable">${entry.Metadata?.mimetype ?? ''}</td>
+                <td class="clickable">${entry.Metadata?.location ?? ''}</td>
+                <td class="clickable">${entry.Metadata?.cloud_storage_id ?? ''}</td>
+                <td class="clickable">${entry.Metadata?.md5Checksum ?? ''}</td>
+                <td class="clickable">${entry.Metadata?.description ?? ''}</td>
             </tr>
         `;
     });
@@ -451,17 +482,29 @@ function displayEntries(entries) {
 
 function enableSorting() {
     const table = document.getElementById("resultTable");
-    const headers = table.querySelectorAll(".sortable");
+    const headers = table.querySelectorAll("th.sortable");
     let sortDirection = 1;
 
-    headers.forEach(header => {
-        header.addEventListener("click", () => {
-            const column = header.dataset.column;
+    // Select only the sort triggers
+    const sortTriggers = table.querySelectorAll(".sort-trigger");
+    sortTriggers.forEach(trigger => {
+        trigger.addEventListener("click", (event) => {
+            // Get the parent th of the clicked trigger
+            const header = event.target.closest("th");
+            const columnIndex = Array.from(headers).indexOf(header) + 1;
             const rows = Array.from(table.querySelector("tbody").rows);
 
             rows.sort((a, b) => {
-                const aText = a.querySelector(`td:nth-child(${Array.from(headers).indexOf(header) + 1})`).textContent.trim();
-                const bText = b.querySelector(`td:nth-child(${Array.from(headers).indexOf(header) + 1})`).textContent.trim();
+                const aText = a.querySelector(`td:nth-child(${columnIndex})`).textContent.trim();
+                const bText = b.querySelector(`td:nth-child(${columnIndex})`).textContent.trim();
+
+                if (aText === '' && bText === '') {
+                    return 0;
+                } else if (aText === '') {
+                    return 1;
+                } else if (bText === '') {
+                    return -1;
+                }
 
                 if (!isNaN(aText) && !isNaN(bText)) {
                     return sortDirection * (parseFloat(aText) - parseFloat(bText));
@@ -478,26 +521,32 @@ function enableSorting() {
 
 function enableCopying() {
     document.querySelectorAll('.clickable').forEach(td => {
-        td.addEventListener('click', () => {
-            navigator.clipboard.writeText(td.textContent.trim()).then(() => {
-                displayClipboardMessage(`Copied: ${td.textContent.trim()}`);
-            }).catch(err => {
-                alert(`Error copying to clipboard: ${err}`)
+        const textContent = td.textContent.trim();
+        if (textContent != '') {
+            td.addEventListener('click', () => {
+                navigator.clipboard.writeText(textContent).then(() => {
+                    displayClipboardMessage(`Copied: ${textContent}`);
+                }).catch(err => {
+                    alert(`Error copying to clipboard: ${err}`)
+                });
             });
-        });
+        };
     });
 }
 
 function enableUUIDLinkCopying() {
     document.querySelectorAll('.hyperlink').forEach(td => {
-        td.addEventListener('click', () => {
-            const hyperlink = `https://cdn.williamveith.com/?id=${td.textContent.trim()}`
-            navigator.clipboard.writeText(hyperlink).then(() => {
-                displayClipboardMessage(`Copied: ${hyperlink}`);
-            }).catch(err => {
-                alert(`Error copying to clipboard: ${err}`)
+        const textContent = td.textContent.trim();
+        if (textContent != '') {
+            td.addEventListener('click', () => {
+                const hyperlink = `https://cdn.williamveith.com/?id=${textContent}`
+                navigator.clipboard.writeText(hyperlink).then(() => {
+                    displayClipboardMessage(`Copied: ${hyperlink}`);
+                }).catch(err => {
+                    alert(`Error copying to clipboard: ${err}`)
+                });
             });
-        });
+        };
     });
 }
 
