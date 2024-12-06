@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"cdnmanager/pkg/database"
 	"cdnmanager/pkg/session"
@@ -43,6 +44,18 @@ func loadEmbeddedEnv() {
 	}
 }
 
+func initializeDatabase(dbPath string, schema []byte) *database.Database {
+	// Check if database file exists
+	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+		fmt.Println("Database not found. Creating a new one...")
+		// Create the database and initialize it with the schema
+		return database.NewDatabaseFromSchema(dbPath, schema)
+	}
+
+	// Open the existing database
+	return database.NewDatabase(dbPath)
+}
+
 func SyncFromCloudflare() {
 	cloudflareSize, storageKeys := cloudflareSession.Size()
 	if cdnDB.Size() != cloudflareSize {
@@ -66,10 +79,24 @@ func main() {
 		return
 	}
 
+	// Determine the path for the persistent database file
+	appDataDir, err := os.UserConfigDir()
+	if err != nil {
+		fmt.Println("Failed to determine user config directory:", err)
+		return
+	}
+	dbPath := filepath.Join(appDataDir, "cdnmanager", "cdnmanager.sqlite3")
+
+	// Ensure the directory exists
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+		fmt.Println("Failed to create database directory:", err)
+		return
+	}
+
 	// Create a new database from the schema
-	cdnDB = database.NewDatabaseFromSchema(schema)
+	cdnDB = initializeDatabase(dbPath, schema)
 	if cdnDB == nil {
-		fmt.Println("Failed to initialize database from schema")
+		fmt.Println("Failed to initialize database")
 		return
 	}
 
@@ -78,7 +105,7 @@ func main() {
 
 	app := NewApp()
 
-	err := wails.Run(&options.App{
+	err = wails.Run(&options.App{
 		Title:         "Content Delivery Network Manager",
 		DisableResize: false,
 		MinWidth:      1400,
