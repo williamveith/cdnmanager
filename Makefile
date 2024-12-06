@@ -18,7 +18,7 @@ check:
 		if [ -f template.env ]; then \
 			echo "Build Failed: Fill out template.env with your Cloudflare credentials and rename template.env to .env"; \
 		else \
-			echo "Build Failed: Missing .env and template.env. Please create one."; \
+			echo "Build Failed: Missing .env and template.env. Create .env file or use template from repository"; \
 		fi; \
 		exit 1; \
 	fi
