@@ -16,22 +16,13 @@ all: build
 # Build the Wails application
 build:
 	@echo "Building Wails application..."
-	wails build $(WAILS_BUILD_FLAGS) -o $(BINARY_NAME)
-	@echo "Build complete: $(BINARY_NAME)"
-
-	@if command -v strip >/dev/null 2>&1; then \
-		echo "Stripping binary..."; \
-		strip $(APP_BUNDLE); \
+	@if [ "$(shell uname -s)" = "Darwin" ] && [ "$(shell uname -m)" = "arm64" ]; then \
+		echo "Skipping UPX compression for macOS arm64"; \
+		wails build -clean -ldflags "-s -w" -trimpath -o $(BINARY_NAME); \
 	else \
-		echo "No 'strip' tool found. Skipping binary stripping."; \
+		wails build -clean -ldflags "-s -w" -trimpath -upx -upxflags "--lzma" -o $(BINARY_NAME); \
 	fi
-
-# Clean the build artifacts
-clean:
-	@echo "Cleaning build artifacts..."
-	wails build -clean
-	@rm -f $(BINARY_NAME)
-	@echo "Clean complete."
+	@echo "Build complete: $(BINARY_NAME)"
 
 # Run the Wails dev server for testing in a live environment
 test:
@@ -44,4 +35,4 @@ run: build
 	./$(BINARY_NAME)
 
 # PHONY targets are not associated with real files
-.PHONY: all build clean run
+.PHONY: all build run

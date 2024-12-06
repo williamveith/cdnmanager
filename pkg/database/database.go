@@ -28,27 +28,27 @@ func NewDatabase(dbName string) *Database {
 	}
 }
 
-func NewDatabaseFromBytes(dbBytes []byte) *Database {
-	// Create a temporary file
+func NewDatabaseFromSchema(schema []byte) *Database {
 	tmpFile, err := os.CreateTemp("", "*.sqlite3")
 	if err != nil {
 		log.Fatalf("Failed to create temporary file for database: %v", err)
 	}
-	defer tmpFile.Close()
+	tmpFileName := tmpFile.Name()
+	tmpFile.Close()
 
-	// Write the embedded database bytes to the temporary file
-	if _, err := tmpFile.Write(dbBytes); err != nil {
-		log.Fatalf("Failed to write database bytes to temporary file: %v", err)
-	}
-
-	// Open the SQLite database from the temporary file
-	db, err := sql.Open("sqlite3", tmpFile.Name())
+	db, err := sql.Open("sqlite3", tmpFileName)
 	if err != nil {
 		log.Fatalf("Failed to open SQLite database: %v", err)
 	}
 
+	// Execute the schema
+	_, err = db.Exec(string(schema))
+	if err != nil {
+		log.Fatalf("Failed to initialize database schema: %v", err)
+	}
+
 	return &Database{
-		dbName: tmpFile.Name(),
+		dbName: tmpFileName,
 		db:     db,
 	}
 }
