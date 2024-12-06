@@ -25,7 +25,7 @@ This setup is also structured to make the next phase easier to implement: adding
    ```bash
    git clone https://github.com/williamveith/cdnmanager.git
    cd cdnmanager
-   mv template.env .env;
+   mv template.env .env
    ```
 
    Clones the remote repository containing the application source code, enters the root directory of the repository, and creates your .env file.
