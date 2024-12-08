@@ -69,6 +69,25 @@ func SyncFromCloudflare() {
 	}
 }
 
+func SaveTemplateFile() (string, error) {
+	csvContent := `name,value,metadata_name,metadata_external,metadata_mimetype,metadata_location,metadata_description,metadata_cloud_storage_id,metadata_md5Checksum`
+
+	// Get a writable directory (e.g., user's downloads folder)
+	dir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	filePath := filepath.Join(dir, "Downloads", "CDN Manager Bulk Insert Template.csv")
+
+	// Write the file
+	err = os.WriteFile(filePath, []byte(csvContent), 0644)
+	if err != nil {
+		return "", err
+	}
+
+	return filePath, nil
+}
+
 func main() {
 	loadEmbeddedEnv()
 
@@ -182,6 +201,10 @@ type App struct {
 
 func NewApp() *App {
 	return &App{}
+}
+
+func (a *App) GenerateCSV() (string, error) {
+	return SaveTemplateFile()
 }
 
 func (a *App) startup(ctx context.Context) {

@@ -2,6 +2,7 @@ import './app.css';
 
 import { GetEntryByName, GetEntryByValue, GetEntriesByValue, GetAllEntries, InsertKVEntryIntoDatabase, DeleteName } from '../wailsjs/go/database/Database';
 import { InsertKVEntry, DeleteKeyValue } from '../wailsjs/go/session/CloudflareSession';
+import { GenerateCSV } from "../wailsjs/go/main/App";
 
 import Fuse from 'fuse.js';
 
@@ -33,7 +34,7 @@ document.querySelector('#app').innerHTML = `
             <option value="GetEntryByValue">By URL (single)</option>
             <option value="GetEntriesByValue">By URL (multiple)</option>
         </select>
-        <input class="input" id="entryValue" type="text" autocomplete="off" placeholder="Enter search value" style="width:400px;display:none;"/>
+        <input class="input" id="entryValue" type="text" spellcheck="false" autocomplete="off" placeholder="Enter search value" style="width:400px;display:none;"/>
         <button class="btn" onclick="searchEntry()">Search</button>
         <button id="clear" class="btn" onclick="clearResults()" style="display:none;">Clear</button>
     </div>
@@ -47,7 +48,7 @@ document.querySelector('#app').innerHTML += `
             <option value="default" selected disabled>Select Insertion Method</option>
             <option value="manual">Insert Manually</option>
             <option value="fromFile">From File</option>
-            <option value="getTemplate">Download File Template</option>
+            <option value="getBulkInsertTemplate">Download File Template</option>
         </select>
     </div>
     <div  class="result" id="dynamicInsertEntry"></div>
@@ -77,7 +78,7 @@ window.updateInsertEntry = function (entryMethod = undefined) {
             dynamicInsertEntryDiv.innerHTML = `
             <div class="input-box" id="manual-insert-entry" style="margin-top:10px;margin-left:75px;">
                 <div style="position: relative; display: inline-block;">
-                    <input class="input" id="insertEntryName" type="text" placeholder="Enter name" size="40"/>
+                    <input class="input" id="insertEntryName" type="text" spellcheck="false" placeholder="Enter name" size="40"/>
                     <svg 
                         onclick="generateUUID()" 
                         xmlns="http://www.w3.org/2000/svg" 
@@ -95,15 +96,15 @@ window.updateInsertEntry = function (entryMethod = undefined) {
                         <line x1="8" y1="12" x2="16" y2="12"></line>
                     </svg>
                 </div>
-                <input class="input" id="insertEntryValue" type="text" placeholder="Enter value" style="width:400px;"/>
+                <input class="input" id="insertEntryValue" type="text" spellcheck="false" placeholder="Enter value" style="width:400px;"/>
                 <button class="btn" onclick="insertEntry()">Insert</button>
                 <div id="entryMetadata">
                     <div class="indented metadata-entry">
-                        <input class="input jsonKey" type="text" value="name" readonly style="margin-right: 5px;">
-                        <input class="input jsonValue" type="text" placeholder="Resource Title" required>
+                        <input class="input jsonKey" type="text" spellcheck="false" value="name" readonly style="margin-right: 5px;">
+                        <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Title" required>
                     </div>
                     <div class="indented metadata-entry">
-                        <input class="input jsonKey" type="text" value="external" readonly style="margin-right: 5px;">
+                        <input class="input jsonKey" type="text" spellcheck="false" value="external" readonly style="margin-right: 5px;">
                         <select  class="input jsonValue" id="externalMetadataToggle" style="width:422px;" required  onchange="updateExternalInternalMetadataSelector()">
                             <option value="default" selected disabled>Resource Is External</option>
                             <option value="true">True</option>
@@ -111,24 +112,24 @@ window.updateInsertEntry = function (entryMethod = undefined) {
                         </select>
                     </div>
                     <div class="indented metadata-entry">
-                        <input class="input jsonKey" type="text" value="mimetype" readonly style="margin-right: 5px;">
-                        <input class="input jsonValue" type="text" placeholder="Resource MimeType" required>
+                        <input class="input jsonKey" type="text" spellcheck="false" value="mimetype" readonly style="margin-right: 5px;">
+                        <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource MimeType" required>
                     </div>
                     <div class="indented metadata-entry">
-                        <input class="input jsonKey" type="text" value="location" readonly style="margin-right: 5px;">
-                        <input class="input jsonValue" type="text" placeholder="Resource Location (domain or owner email)" required>
+                        <input class="input jsonKey" type="text" spellcheck="false" value="location" readonly style="margin-right: 5px;">
+                        <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Location (domain or owner email)" required>
                     </div>
                     <div class="indented metadata-entry">
-                        <input class="input jsonKey" type="text" value="description" readonly style="margin-right: 5px;">
-                        <input class="input jsonValue" type="text" placeholder="Resource Description">
+                        <input class="input jsonKey" type="text" spellcheck="false" value="description" readonly style="margin-right: 5px;">
+                        <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Description">
                     </div>
                     <div id="cloud-storage-id-div" class="indented metadata-entry" style="display:none;">
-                        <input class="input jsonKey" type="text" value="cloud_storage_id" readonly style="margin-right:-5px;">
-                        <input class="input jsonValue" type="text" placeholder="Resource Cloud Storage ID">
+                        <input class="input jsonKey" type="text" spellcheck="false" value="cloud_storage_id" readonly style="margin-right:-5px;">
+                        <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Cloud Storage ID">
                     </div>
                     <div  id="md5checksum-div" class="indented metadata-entry" style="display:none;">
-                        <input class="input jsonKey" type="text" value="md5Checksum" readonly style="margin-right:-5px;">
-                        <input class="input jsonValue" type="text" placeholder="Resource MD5 Checksum">
+                        <input class="input jsonKey" type="text" spellcheck="false" value="md5Checksum" readonly style="margin-right:-5px;">
+                        <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource MD5 Checksum">
                     </div>
                 </div>
             </div>
@@ -142,17 +143,8 @@ window.updateInsertEntry = function (entryMethod = undefined) {
             </div>
         `;
             break;
-        case "getTemplate":
-            const csvContent = `name,value,metadata_name,metadata_external,metadata_mimetype,metadata_location,metadata_description,metadata_cloud_storage_id,metadata_md5Checksum`;
-
-            const blob = new Blob([csvContent], { type: "text/csv" });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = "CDN Manager Bulk Insert Template.csv";
-            a.style.display = "none";
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+        case "getBulkInsertTemplate":
+            GenerateCSV();
         default:
             document.getElementById("insertEntrySelector").value = "default";
             dynamicInsertEntryDiv.innerHTML = `
@@ -164,7 +156,7 @@ window.updateInsertEntry = function (entryMethod = undefined) {
 document.querySelector('#app').innerHTML += `
     <div class="input-box" id="delete-entry" style="margin-top:20px;">
         <label for="deleteEntryName">Delete:</label>
-        <input class="input" id="deleteEntryName" type="text" placeholder="Enter UUID" size="40"/>
+        <input class="input" id="deleteEntryName" type="text" spellcheck="false" placeholder="Enter UUID" size="40"/>
         <button class="btn" onclick="deleteEntry()">Delete</button>
     </div>
 `;
@@ -437,7 +429,7 @@ function displayEntries(entries) {
     let tableHTML = `
         <div class="input-box" id="table-search" style="margin-top:20px;">
             <label for="approximateSearchValue" style="font-style:italic;margin-left:20px;">Search Table:</label>
-            <input class="input" id="approximateSearchValue" type="text" autocomplete="off" placeholder="Search..." oninput="approximateSearch()" style="width:400px;"/>
+            <input class="input" id="approximateSearchValue" type="text" autocomplete="off" spellcheck="false" placeholder="Search..." oninput="approximateSearch()" style="width:400px;"/>
         </div>
         <table id="resultTable" style="margin-bottom:10px;table-layout:fixed; width:100%;">
             <colgroup>
@@ -526,8 +518,6 @@ function displayEntries(entries) {
     updateResults(tableHTML);
 
     enableSorting();
-    enableColumnCollapse();
-    enableColumnExpand();
     enableCopying();
     enableUUIDLinkCopying();
 }
@@ -565,36 +555,6 @@ function enableSorting() {
 
             rows.forEach(row => table.querySelector("tbody").appendChild(row));
             sortDirection *= -1;
-        });
-    });
-}
-
-function enableColumnCollapse() {
-    const table = document.getElementById("resultTable");
-    const collapseTriggers = table.querySelectorAll(".collapse-trigger");
-
-    collapseTriggers.forEach(trigger => {
-        trigger.addEventListener("click", (event) => {
-            const columnIndex = event.target.closest("th").cellIndex;
-            const column = table.getElementsByTagName("col")[columnIndex];
-            column.style="visibility: collapse";
-            table.getElementsByTagName("th")[columnIndex+1].getElementsByClassName("expand-trigger")[0].style.display="inline";
-            table.getElementsByTagName("th")[columnIndex].getElementsByClassName("sort-trigger")[0].style.display="none";
-        });
-    });
-}
-
-function enableColumnExpand() {
-    const table = document.getElementById("resultTable");
-    const expandTriggers = table.querySelectorAll(".expand-trigger");
-
-    expandTriggers.forEach(trigger => {
-        trigger.addEventListener("click", (event) => {
-            const columnIndex = event.target.closest("th").cellIndex;
-            const column = table.getElementsByTagName("col")[columnIndex-1];
-            column.style.display = "table-cell";
-            table.getElementsByTagName("th")[columnIndex].getElementsByClassName("expand-trigger")[0].style.display="none";
-            table.getElementsByTagName("th")[columnIndex-1].getElementsByClassName("sort-trigger")[0].style.display="inline";
         });
     });
 }
