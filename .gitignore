@@ -3,7 +3,7 @@
 bin/*
 *.sqlite3
 *.db
-build/
+build
 node_modules
 frontend/dist
 frontend/wailsjs
