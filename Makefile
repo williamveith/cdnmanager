@@ -1,4 +1,5 @@
 BINARY_NAME := cdnmanager
+BUILD_DIR := build
 APP_BUNDLE  := build/bin/$(BINARY_NAME).app/Contents/MacOS/$(BINARY_NAME)
 
 # Wails build flags
@@ -73,5 +74,12 @@ run: build
 	@echo "Running application..."
 	./$(BINARY_NAME)
 
+# Deletes all previous builds
+clean:
+	@clear
+	@echo "Cleaning Build Directory..."
+	@find build -mindepth 1 -type d -exec rm -rf {} +
+	@echo "Build Directory Clean"
+
 # PHONY targets are not associated with real files
-.PHONY: all check build test run
+.PHONY: all check build test run clean

@@ -159,7 +159,7 @@ func main() {
 			WindowIsTranslucent:  true,
 			About: &mac.AboutInfo{
 				Title:   "Content Delivery Network Manager",
-				Message: "© 2024 William Veith",
+				Message: "Created By William Veith",
 				Icon:    icon,
 			},
 		},

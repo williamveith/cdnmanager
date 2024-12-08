@@ -4,10 +4,17 @@
   "outputfilename": "cdnmanager",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
+  "postBuildHooks": {
+    "darwin/*": "sh -c 'mkdir -p cdnmanager.app/Contents/Licenses && cp ../../frontend/src/assets/fonts/IBM_Plex_Mono/license.txt cdnmanager.app/Contents/Licenses/IBMPlexMono\\ License.txt'"
+    },
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
   "author": {
     "name": "William Veith",
     "email": "software@williamveith.com"
+  },
+  "info": {
+    "productName": "CDN Manager",
+    "productVersion": "1.0.0"
   }
 }
