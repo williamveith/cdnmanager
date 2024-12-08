@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"embed"
 	"fmt"
 	"os"
@@ -45,14 +44,10 @@ func loadEmbeddedEnv() {
 }
 
 func initializeDatabase(dbPath string, schema []byte) *database.Database {
-	// Check if database file exists
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		fmt.Println("Database not found. Creating a new one...")
-		// Create the database and initialize it with the schema
 		return database.NewDatabaseFromSchema(dbPath, schema)
 	}
-
-	// Open the existing database
 	return database.NewDatabase(dbPath)
 }
 
@@ -67,25 +62,6 @@ func SyncFromCloudflare() {
 	} else {
 		fmt.Println("Existing Database Up To Date")
 	}
-}
-
-func SaveTemplateFile() (string, error) {
-	csvContent := `name,value,metadata_name,metadata_external,metadata_mimetype,metadata_location,metadata_description,metadata_cloud_storage_id,metadata_md5Checksum`
-
-	// Get a writable directory (e.g., user's downloads folder)
-	dir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	filePath := filepath.Join(dir, "Downloads", "CDN Manager Bulk Insert Template.csv")
-
-	// Write the file
-	err = os.WriteFile(filePath, []byte(csvContent), 0644)
-	if err != nil {
-		return "", err
-	}
-
-	return filePath, nil
 }
 
 func main() {
@@ -193,20 +169,4 @@ func main() {
 	if err != nil {
 		println("Error:", err.Error())
 	}
-}
-
-type App struct {
-	ctx context.Context
-}
-
-func NewApp() *App {
-	return &App{}
-}
-
-func (a *App) GenerateCSV() (string, error) {
-	return SaveTemplateFile()
-}
-
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
 }

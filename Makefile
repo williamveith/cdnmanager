@@ -104,6 +104,7 @@ build: check
 	@echo "Results:"
 	@echo "  Build                | Success"
 	@echo "  Application          | $(shell pwd)/build/bin/$(BINARY_NAME).app"
+	@open $(shell pwd)/build/bin
 
 # Run the Wails dev server for testing in a live environment
 test: check

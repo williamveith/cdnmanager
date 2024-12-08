@@ -50,6 +50,7 @@ document.querySelector('#app').innerHTML += `
             <option value="fromFile">From File</option>
             <option value="getBulkInsertTemplate">Download File Template</option>
         </select>
+        <button id="clear-insert" class="btn" onclick="updateInsertEntry('')" style="display:none;">Clear</button>
     </div>
     <div  class="result" id="dynamicInsertEntry"></div>
 `;
@@ -134,6 +135,7 @@ window.updateInsertEntry = function (entryMethod = undefined) {
                 </div>
             </div>
         `;
+            document.getElementById("clear-insert").style.display = "inline";
             break;
         case "fromFile":
             dynamicInsertEntryDiv.innerHTML = `
@@ -142,6 +144,7 @@ window.updateInsertEntry = function (entryMethod = undefined) {
                 <button class="btn" onclick="insertEntryFromFile()">Insert</button>
             </div>
         `;
+            document.getElementById("clear-insert").style.display = "inline";
             break;
         case "getBulkInsertTemplate":
             GenerateCSV();
@@ -150,6 +153,7 @@ window.updateInsertEntry = function (entryMethod = undefined) {
             dynamicInsertEntryDiv.innerHTML = `
               <div class="result"></div>
             `;
+            document.getElementById("clear-insert").style.display = "none"
     }
 };
 
@@ -447,43 +451,36 @@ function displayEntries(entries) {
                     <th data-column="UUID" class="sortable table-header">
                         ID
                         <span class="glyph sort-trigger">&#8645;</span>
-                        <span class="glyph collapse-trigger">&minus;</span>
                     </th>
                     <th data-column="Value" class="sortable table-header">
                         <span class="glyph expand-trigger">&plus;</span>
                         Value
-                        <span class="glyph sort-trigger table-header">&#8645;</span>
-                        <span class="glyph collapse-trigger">&minus;</span>
+                        <span class="glyph sort-trigger table-header">&#8645;</span>   
                     </th>
                     <th data-column="Name" class="sortable table-header">
                         <span class="glyph expand-trigger">&plus;</span>
                         Name
-                        <span class="glyph sort-trigger">&#8645;</span>
-                        <span class="glyph collapse-trigger">&minus;</span>
+                        <span class="glyph sort-trigger">&#8645;</span> 
                     </th>
                     <th data-column="MimeType" class="sortable table-header">
                         <span class="glyph expand-trigger">&plus;</span>
                         Mime Type
                         <span class="glyph sort-trigger">&#8645;</span>
-                        <span class="glyph collapse-trigger">&minus;</span>
                     </th>
                     <th data-column="Location" class="sortable table-header">
                         <span class="glyph expand-trigger">&plus;</span>
                         Location
                         <span class="glyph sort-trigger">&#8645;</span>
-                        <span class="glyph collapse-trigger">&minus;</span>
                     </th>
                     <th data-column="CloudStorageId" class="sortable table-header">
                         <span class="glyph expand-trigger">&plus;</span>
                         Cloud Storage ID
                         <span class="glyph sort-trigger">&#8645;</span>
-                        <span class="glyph collapse-trigger">&minus;</span>
                     </th>
                     <th data-column="MD5Checksum" class="sortable table-header">
                         <span class="glyph expand-trigger">&plus;</span>
                         MD5 Checksum
                         <span class="glyph sort-trigger">&#8645;</span>
-                        <span class="glyph collapse-trigger">&minus;</span>
                     </th>
                     <th data-column="Description" class="sortable table-header">
                         <span class="glyph expand-trigger">&plus;</span>
