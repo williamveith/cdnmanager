@@ -3,16 +3,37 @@ import './app.css';
 import { GetEntryByName, GetEntryByValue, GetEntriesByValue, GetAllEntries, InsertKVEntryIntoDatabase, DeleteName } from '../wailsjs/go/database/Database';
 import { InsertKVEntry, DeleteKeyValue } from '../wailsjs/go/session/CloudflareSession';
 
+import Fuse from 'fuse.js';
+
+let fuse;
+
+/**
+ * Configure Fuse.js options
+ * 
+ * keys: Define searchable fields
+ * threshold: Adjust for strictness (0.0 = exact, 1.0 = very loose)
+ * includeScore: Include scores to sort by relevance
+ */
+const fuseOptions = {
+    keys: ['Metadata.name', 'Metadata.mimetype', 'Metadata.location', 'Metadata.description'],
+    threshold: 0.3,
+    includeScore: true
+};
+
+function initializeFuse(data) {
+    fuse = new Fuse(data, fuseOptions);
+}
+
 document.querySelector('#app').innerHTML = `
     <div class="input-box" id="search-entry">
         <label for="searchType">Search:</label>
         <select id="searchType" style="width:292px;">
-            <option value="GetEntryByName">Search by UUID</option>
-            <option value="GetEntryByValue">Search by URL (single)</option>
-            <option value="GetEntriesByValue">Search by URL (multiple)</option>
-            <option value="GetAllEntries">Get All Entries</option>
+            <option value="GetAllEntries">All</option>
+            <option value="GetEntryByName">By UUID</option>
+            <option value="GetEntryByValue">By URL (single)</option>
+            <option value="GetEntriesByValue">By URL (multiple)</option>
         </select>
-        <input class="input" id="entryValue" type="text" autocomplete="off" placeholder="Enter search value" style="width:400px;"/>
+        <input class="input" id="entryValue" type="text" autocomplete="off" placeholder="Enter search value" style="width:400px;display:none;"/>
         <button class="btn" onclick="searchEntry()">Search</button>
         <button id="clear" class="btn" onclick="clearResults()" style="display:none;">Clear</button>
     </div>
@@ -162,6 +183,8 @@ searchTypeElement.addEventListener('change', () => {
     }
 });
 
+window.cachedEntries = [];
+
 window.searchEntry = async function () {
     const value = entryValueElement.value.trim();
     const searchType = searchTypeElement.value;
@@ -172,29 +195,30 @@ window.searchEntry = async function () {
     }
 
     try {
-        let entries = [];
+        window.cachedEntries = [];
         switch (searchType) {
             case "GetEntryByName":
                 const entryByName = await GetEntryByName(getUUIDFromString(value));
-                if (entryByName?.Name) entries.push(entryByName);
+                if (entryByName?.Name) cachedEntries.push(entryByName);
                 break;
             case "GetEntryByValue":
                 const entryByValue = await GetEntryByValue(value);
-                if (entryByValue?.Name) entries.push(entryByValue);
+                if (entryByValue?.Name) cachedEntries.push(entryByValue);
                 break;
             case "GetEntriesByValue":
-                entries = await GetEntriesByValue(value);
+                cachedEntries = await GetEntriesByValue(value);
                 break;
             case "GetAllEntries":
-                entries = await GetAllEntries();
+                cachedEntries = await GetAllEntries();
                 break;
             default:
                 updateResults("Invalid search type.");
                 return;
         }
 
-        if (entries.length > 0) {
-            displayEntries(entries);
+        if (cachedEntries.length > 0) {
+            initializeFuse(cachedEntries);
+            displayEntries(cachedEntries);
         } else {
             updateResults("No entries found for the provided value.");
         }
@@ -322,13 +346,13 @@ window.insertEntryFromFile = async function () {
     if (!content) return;
 
     const lines = content.trim().split('\n');
-    if (lines.length < 2) return; // No data to process
+    if (lines.length < 2) return;
 
     const headers = lines[0].split(',').map(header => header.trim().replace(/\r/g, ''));
 
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
-        if (!line.trim()) continue; // Skip empty lines
+        if (!line.trim()) continue;
         const values = line.split(',');
         const rowData = {};
         for (let j = 0; j < headers.length; j++) {
@@ -411,6 +435,10 @@ function displayClipboardMessage(message) {
 
 function displayEntries(entries) {
     let tableHTML = `
+        <div class="input-box" id="table-search" style="margin-top:20px;">
+            <label for="approximateSearchValue" style="font-style:italic;margin-left:20px;">Search Table:</label>
+            <input class="input" id="approximateSearchValue" type="text" autocomplete="off" placeholder="Search..." oninput="approximateSearch()" style="width:400px;"/>
+        </div>
         <table id="resultTable" style="margin-bottom:10px;table-layout:fixed; width:100%;">
             <colgroup>
                 <col style="width:375px;">
@@ -424,33 +452,55 @@ function displayEntries(entries) {
             </colgroup>
             <thead>
                 <tr>
-                    <th data-column="UUID" class="sortable">ID
-                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    <th data-column="UUID" class="sortable table-header">
+                        ID
+                        <span class="glyph sort-trigger">&#8645;</span>
+                        <span class="glyph collapse-trigger">&minus;</span>
                     </th>
-                    <th data-column="Value" class="sortable">Value
-                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    <th data-column="Value" class="sortable table-header">
+                        <span class="glyph expand-trigger">&plus;</span>
+                        Value
+                        <span class="glyph sort-trigger table-header">&#8645;</span>
+                        <span class="glyph collapse-trigger">&minus;</span>
                     </th>
-                    <th data-column="Name" class="sortable">Name
-                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    <th data-column="Name" class="sortable table-header">
+                        <span class="glyph expand-trigger">&plus;</span>
+                        Name
+                        <span class="glyph sort-trigger">&#8645;</span>
+                        <span class="glyph collapse-trigger">&minus;</span>
                     </th>
-                    <th data-column="MimeType" class="sortable">Mime Type
-                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    <th data-column="MimeType" class="sortable table-header">
+                        <span class="glyph expand-trigger">&plus;</span>
+                        Mime Type
+                        <span class="glyph sort-trigger">&#8645;</span>
+                        <span class="glyph collapse-trigger">&minus;</span>
                     </th>
-                    <th data-column="Location" class="sortable">Location
-                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    <th data-column="Location" class="sortable table-header">
+                        <span class="glyph expand-trigger">&plus;</span>
+                        Location
+                        <span class="glyph sort-trigger">&#8645;</span>
+                        <span class="glyph collapse-trigger">&minus;</span>
                     </th>
-                    <th data-column="CloudStorageId" class="sortable">Cloud Storage ID
-                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    <th data-column="CloudStorageId" class="sortable table-header">
+                        <span class="glyph expand-trigger">&plus;</span>
+                        Cloud Storage ID
+                        <span class="glyph sort-trigger">&#8645;</span>
+                        <span class="glyph collapse-trigger">&minus;</span>
                     </th>
-                    <th data-column="MD5Checksum" class="sortable">MD5 Checksum
-                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    <th data-column="MD5Checksum" class="sortable table-header">
+                        <span class="glyph expand-trigger">&plus;</span>
+                        MD5 Checksum
+                        <span class="glyph sort-trigger">&#8645;</span>
+                        <span class="glyph collapse-trigger">&minus;</span>
                     </th>
-                    <th data-column="Description" class="sortable">Description
-                        <span class="glyph sort-trigger">&#8645;</span> <span class="glyph collapse-trigger">&#8633;</span>
+                    <th data-column="Description" class="sortable table-header">
+                        <span class="glyph expand-trigger">&plus;</span>
+                        Description
+                        <span class="glyph sort-trigger">&#8645;</span>
                     </th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="resultTableBody">
     `;
 
     entries.forEach(entry => {
@@ -476,6 +526,8 @@ function displayEntries(entries) {
     updateResults(tableHTML);
 
     enableSorting();
+    enableColumnCollapse();
+    enableColumnExpand();
     enableCopying();
     enableUUIDLinkCopying();
 }
@@ -485,11 +537,9 @@ function enableSorting() {
     const headers = table.querySelectorAll("th.sortable");
     let sortDirection = 1;
 
-    // Select only the sort triggers
     const sortTriggers = table.querySelectorAll(".sort-trigger");
     sortTriggers.forEach(trigger => {
         trigger.addEventListener("click", (event) => {
-            // Get the parent th of the clicked trigger
             const header = event.target.closest("th");
             const columnIndex = Array.from(headers).indexOf(header) + 1;
             const rows = Array.from(table.querySelector("tbody").rows);
@@ -515,6 +565,36 @@ function enableSorting() {
 
             rows.forEach(row => table.querySelector("tbody").appendChild(row));
             sortDirection *= -1;
+        });
+    });
+}
+
+function enableColumnCollapse() {
+    const table = document.getElementById("resultTable");
+    const collapseTriggers = table.querySelectorAll(".collapse-trigger");
+
+    collapseTriggers.forEach(trigger => {
+        trigger.addEventListener("click", (event) => {
+            const columnIndex = event.target.closest("th").cellIndex;
+            const column = table.getElementsByTagName("col")[columnIndex];
+            column.style="visibility: collapse";
+            table.getElementsByTagName("th")[columnIndex+1].getElementsByClassName("expand-trigger")[0].style.display="inline";
+            table.getElementsByTagName("th")[columnIndex].getElementsByClassName("sort-trigger")[0].style.display="none";
+        });
+    });
+}
+
+function enableColumnExpand() {
+    const table = document.getElementById("resultTable");
+    const expandTriggers = table.querySelectorAll(".expand-trigger");
+
+    expandTriggers.forEach(trigger => {
+        trigger.addEventListener("click", (event) => {
+            const columnIndex = event.target.closest("th").cellIndex;
+            const column = table.getElementsByTagName("col")[columnIndex-1];
+            column.style.display = "table-cell";
+            table.getElementsByTagName("th")[columnIndex].getElementsByClassName("expand-trigger")[0].style.display="none";
+            table.getElementsByTagName("th")[columnIndex-1].getElementsByClassName("sort-trigger")[0].style.display="inline";
         });
     });
 }
@@ -554,4 +634,41 @@ function getUUIDFromString(stringContainingUUID) {
     const uuidPattern = /\b[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\b/;
     const match = stringContainingUUID.match(uuidPattern);
     return match ? match[0] : '';
+}
+
+window.approximateSearch = function () {
+    const query = document.getElementById("approximateSearchValue").value.trim();
+
+    if (query === "") {
+        displayEntries(window.cachedEntries);
+        return;
+    }
+
+    const results = fuse.search(query);
+    const filteredData = results.map((result) => result.item);
+
+    displayApproximateSearchSort(filteredData);
+};
+
+function displayApproximateSearchSort(data) {
+    const tableBody = document.getElementById("resultTableBody");
+    tableBody.innerHTML = "";
+    
+    data.forEach(row => {
+        tableBody.innerHTML += `
+            <tr>
+                <td class="hyperlink">${row.Name}</td>
+                <td class="clickable">${row.Value}</td>
+                <td class="clickable">${row.Metadata?.name ?? ''}</td>
+                <td class="clickable">${row.Metadata?.mimetype ?? ''}</td>
+                <td class="clickable">${row.Metadata?.location ?? ''}</td>
+                <td class="clickable">${row.Metadata?.cloud_storage_id ?? ''}</td>
+                <td class="clickable">${row.Metadata?.md5Checksum ?? ''}</td>
+                <td class="clickable">${row.Metadata?.description ?? ''}</td>
+            </tr>
+        `;
+    });
+
+    enableCopying();
+    enableUUIDLinkCopying();
 }

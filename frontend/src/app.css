@@ -51,8 +51,7 @@ th {
     border-bottom: var(--border-style);
     vertical-align: top;
     padding: 5px;
-    padding-left: 5px;
-    text-align: center;
+    padding-left: 0px;
     font-weight: bold;
 }
 
@@ -75,8 +74,43 @@ span.glyph.sort-trigger {
     font-size: 16px;
 }
 
-span.glyph.collapse-trigger {
+span.glyph.collapse-trigger,
+span.glyph.expand-trigger {
     font-size: 20px;
+}
+
+span.glyph.expand-trigger {
+    display: none;
+}
+
+.table-header {
+    position: relative;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.table-header .expand-trigger {
+    position: absolute;
+    left: -7px;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: left;
+    cursor: pointer;
+}
+
+.table-header .expand-trigger-end {
+    position: absolute;
+    right: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: right;
+    cursor: pointer;
+}
+
+.table-header .sort-trigger,
+.table-header .collapse-trigger {
+    margin-left: 5px;
+    cursor: pointer;
 }
 
 .input-box .input, 
