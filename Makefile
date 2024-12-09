@@ -26,23 +26,9 @@ check:
 	@clear
 	@echo "$(HEADER)Running Checks$(RESET)"
 	@$(MAKE) check-wails
-	@$(MAKE) check-env
 
 check-env:
 	@$(MAKE) start-section
-	@echo "$(HEADER)Prebuild Check: Checking .env File...\n$(RESET)"
-	
-	@if [ -f .env ]; then \
-		echo "$(GREEN)Found$(RESET) | .env"; \
-	else \
-		if [ -f template.env ]; then \
-			cp template.env .env; \
-			echo "$(RED)Build Failed:$(RESET) No .env file found. New .env file create. Fill in the new .env file with your Cloudflare credentials$(RESET)"; \
-		else \
-			echo "$(RED)Build Failed:$(RESET) Missing .env and template.env. Create .env file or use template from repository"; \
-		fi; \
-		exit 1; \
-	fi
 
 	@EMAIL=$$(grep -E "^cloudflare_email[ ]{0,1}=[ ]{0,1}['\"].{1,64}@.{2,255}['\"]{0,1}$$" .env); \
 	if [ -z "$$EMAIL" ]; then \
