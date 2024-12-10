@@ -34,11 +34,11 @@ document.querySelector('#app').innerHTML = `
             <option value="GetEntryByValue">By URL (single)</option>
             <option value="GetEntriesByValue">By URL (multiple)</option>
         </select>
-        <input class="input" id="entryValue" type="text" spellcheck="false" autocomplete="off" placeholder="Enter search value" style="width:400px;display:none;"/>
-        <button class="btn" onclick="searchEntry()">Search</button>
+        <input class="input" id="entryValue" type="text" spellcheck="false" autocomplete="off" placeholder="Enter search value" onkeydown="searchEntry(event)" style="width:400px;display:none;"/>
+        <button class="btn" onclick="searchEntry(event)">Search</button>
         <button id="clear" class="btn" onclick="clearResults()" style="display:none;">Clear</button>
     </div>
-    <div class="result" id="entryResult"></div>
+    <div class="result" id="entryResult" style="margin-left:20px;"></div>
 `;
 
 document.querySelector('#app').innerHTML += `
@@ -160,8 +160,8 @@ window.updateInsertEntry = function (entryMethod = undefined) {
 document.querySelector('#app').innerHTML += `
     <div class="input-box" id="delete-entry" style="margin-top:20px;">
         <label for="deleteEntryName">Delete:</label>
-        <input class="input" id="deleteEntryName" type="text" spellcheck="false" placeholder="Enter UUID" size="40"/>
-        <button class="btn" onclick="deleteEntry()">Delete</button>
+        <input class="input" id="deleteEntryName" type="text" spellcheck="false" placeholder="Enter UUID" size="40" onkeydown="deleteEntry(event)"/>
+        <button class="btn" onclick="deleteEntry(event)">Delete</button>
     </div>
 `;
 
@@ -181,7 +181,18 @@ searchTypeElement.addEventListener('change', () => {
 
 window.cachedEntries = [];
 
-window.searchEntry = async function () {
+window.searchEntry = async function (event) {
+    switch (event.type) {
+        case "keydown":
+            if (event.key != "Enter") {
+                return;
+            }
+        break;
+        case "click":
+        default:
+            break;
+    }
+
     const value = entryValueElement.value.trim();
     const searchType = searchTypeElement.value;
 
@@ -228,7 +239,17 @@ window.removeMetaDataEntryField = function () {
     entryMetadata.removeChild(entryMetadata.lastChild);
 };
 
-window.deleteEntry = async function () {
+window.deleteEntry = async function (event) {
+    switch (event.type) {
+        case "keydown":
+            if (event.key != "Enter") {
+                return;
+            }
+        break;
+        case "click":
+        default:
+            break;
+    }
     const uuid = document.getElementById("deleteEntryName").value.trim();
     await DeleteKeyValue(uuid);
     await DeleteName(uuid)
@@ -431,9 +452,13 @@ function displayClipboardMessage(message) {
 
 function displayEntries(entries) {
     let tableHTML = `
-        <div class="input-box" id="table-search" style="margin-top:20px;">
-            <label for="approximateSearchValue" style="font-style:italic;margin-left:20px;">Search Table:</label>
+        <div class="input-box" id="table-search" class="input" style="margin-top:20px;">
+            <label for="approximateSearchValue" style="font-style:italic;">Search Table:</label>
             <input class="input" id="approximateSearchValue" type="text" autocomplete="off" spellcheck="false" placeholder="Search..." oninput="approximateSearch()" style="width:400px;"/>
+        </div>
+        <div style="margin-top:20px;font-style:italic;">
+            <label for="numberOfRecords">Number of Records Found:</label>
+            <span id="numberOfRecords">${entries.length}</span>
         </div>
         <table id="resultTable" style="margin-bottom:10px;table-layout:fixed; width:100%;">
             <colgroup>
@@ -610,7 +635,7 @@ window.approximateSearch = function () {
 function displayApproximateSearchSort(data) {
     const tableBody = document.getElementById("resultTableBody");
     tableBody.innerHTML = "";
-    
+
     data.forEach(row => {
         tableBody.innerHTML += `
             <tr>
@@ -625,6 +650,8 @@ function displayApproximateSearchSort(data) {
             </tr>
         `;
     });
+
+    document.getElementById("numberOfRecords").innerHTML = data.length;
 
     enableCopying();
     enableUUIDLinkCopying();
