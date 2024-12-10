@@ -158,7 +158,7 @@ window.updateInsertEntry = function (entryMethod = undefined) {
 };
 
 document.querySelector('#app').innerHTML += `
-    <div class="input-box" id="delete-entry" style="margin-top:10px;">
+    <div class="input-box" id="delete-entry">
         <label for="deleteEntryName">Delete:</label>
         <input class="input" id="deleteEntryName" type="text" spellcheck="false" placeholder="Enter UUID" size="40" onkeydown="deleteEntry(event)"/>
         <button class="btn" onclick="deleteEntry(event)">Delete</button>
@@ -478,37 +478,30 @@ function displayEntries(entries) {
                         <span class="glyph sort-trigger">&#8645;</span>
                     </th>
                     <th data-column="Value" class="sortable table-header">
-                        <span class="glyph expand-trigger">&plus;</span>
                         Value
                         <span class="glyph sort-trigger table-header">&#8645;</span>   
                     </th>
                     <th data-column="Name" class="sortable table-header">
-                        <span class="glyph expand-trigger">&plus;</span>
                         Name
                         <span class="glyph sort-trigger">&#8645;</span> 
                     </th>
                     <th data-column="MimeType" class="sortable table-header">
-                        <span class="glyph expand-trigger">&plus;</span>
                         Mime Type
                         <span class="glyph sort-trigger">&#8645;</span>
                     </th>
                     <th data-column="Location" class="sortable table-header">
-                        <span class="glyph expand-trigger">&plus;</span>
                         Location
                         <span class="glyph sort-trigger">&#8645;</span>
                     </th>
                     <th data-column="CloudStorageId" class="sortable table-header">
-                        <span class="glyph expand-trigger">&plus;</span>
                         Cloud Storage ID
                         <span class="glyph sort-trigger">&#8645;</span>
                     </th>
                     <th data-column="MD5Checksum" class="sortable table-header">
-                        <span class="glyph expand-trigger">&plus;</span>
                         MD5 Checksum
                         <span class="glyph sort-trigger">&#8645;</span>
                     </th>
                     <th data-column="Description" class="sortable table-header">
-                        <span class="glyph expand-trigger">&plus;</span>
                         Description
                         <span class="glyph sort-trigger">&#8645;</span>
                     </th>

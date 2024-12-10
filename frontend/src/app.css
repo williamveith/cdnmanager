@@ -1,12 +1,16 @@
 :root {
     --border-style: 1px solid #7DF9FF;
     --input-background: rgba(255, 255, 255, 1);
+    --corner-rounding: 3px;
+    --line-spacing: 30px;
+    --elementVerticalSeparation: 10px;
+    --table-cell-padding: 5px;
 }
 
 
 * {
     font-family: "IBMPlexMono", -apple-system, BlinkMacSystemFont, "DejaVu Sans Mono", "Menlo",
-    "Consolas", "Liberation Mono", "Monaco", "Fira Mono", "Lucida Console",monospace;
+        "Consolas", "Liberation Mono", "Monaco", "Fira Mono", "Lucida Console", monospace;
 }
 
 html {
@@ -27,7 +31,7 @@ body {
     font-style: normal;
     font-weight: 400;
     src: local(""),
-    url("assets/fonts/IBM_Plex_Mono/IBMPlexMono-Regular.woff2") format("woff2");
+        url("assets/fonts/IBM_Plex_Mono/IBMPlexMono-Regular.woff2") format("woff2");
 }
 
 @font-face {
@@ -35,7 +39,7 @@ body {
     font-style: normal;
     font-weight: bold;
     src: local(""),
-    url("assets/fonts/IBM_Plex_Mono/IBMPlexMono-Bold.woff2") format("woff2");
+        url("assets/fonts/IBM_Plex_Mono/IBMPlexMono-Bold.woff2") format("woff2");
 }
 
 #app {
@@ -43,25 +47,17 @@ body {
     text-align: left;
 }
 
-.result {
-    margin-top: 2.5vh;
-}
-
 th {
     border-bottom: var(--border-style);
-    vertical-align: top;
-    padding: 5px;
-    padding-left: 0px;
+    padding: var(--table-cell-padding);
     font-weight: bold;
 }
 
 td {
     border: var(--border-style);
     vertical-align: top;
-    padding: 5px;
-    padding-left: 5px;
+    padding: var(--table-cell-padding);
     white-space: normal;
-    word-wrap: break-word;
     overflow-wrap: break-word;
 }
 
@@ -74,53 +70,24 @@ span.glyph.sort-trigger {
     font-size: 16px;
 }
 
-span.glyph.collapse-trigger,
-span.glyph.expand-trigger {
-    font-size: 20px;
-}
-
-span.glyph.expand-trigger {
-    display: none;
-}
-
 .table-header {
     position: relative;
     text-align: center;
     vertical-align: middle;
 }
 
-.table-header .expand-trigger {
-    position: absolute;
-    left: -7px;
-    top: 50%;
-    transform: translateY(-50%);
-    text-align: left;
+.table-header .sort-trigger {
     cursor: pointer;
 }
 
-.table-header .expand-trigger-end {
-    position: absolute;
-    right: -6px;
-    top: 50%;
-    transform: translateY(-50%);
-    text-align: right;
-    cursor: pointer;
-}
-
-.table-header .sort-trigger,
-.table-header .collapse-trigger {
-    margin-left: 5px;
-    cursor: pointer;
-}
-
-.input-box .input, 
+.input-box .input,
 .input-box select {
     height: 30px;
-    line-height: 30px;
+    line-height: var(--line-spacing);
     border: var(--border-style);
-    border-radius: 3px;
+    border-radius: var(--corner-rounding);
     outline: none;
-    padding: 0 10px;
+    padding: 0 var(--elementVerticalSeparation);
     background-color: var(--input-background);
     -webkit-font-smoothing: antialiased;
 }
@@ -138,8 +105,8 @@ span.glyph.expand-trigger {
 .input-box .btn {
     width: 60px;
     height: 30px;
-    line-height: 30px;
-    border-radius: 3px;
+    line-height: var(--line-spacing);
+    border-radius: var(--corner-rounding);
     border: none;
     margin: 0 0 0 20px;
     padding: 0 8px;
@@ -151,16 +118,10 @@ span.glyph.expand-trigger {
     color: #333333;
 }
 
-.indented {
-    margin-top:10px;
-    margin-left:100px;
-}
-
 .metadata-entry {
     display: flex;
     align-items: center;
-    margin-top: 5px;
-    margin-bottom: 5px;
+    margin-top: var(--elementVerticalSeparation);
 }
 
 .jsonKey {
@@ -171,12 +132,12 @@ span.glyph.expand-trigger {
     width: 400px;
 }
 
-.subsection {
-    margin-top: 10px;
-    margin-left: 20px;
+.input-box {
+    margin-top: var(--elementVerticalSeparation);
 }
 
+.subsection,
 .subsection2 {
-    margin-top: 10px;
-    margin-left: 40px;
+    margin-top: var(--elementVerticalSeparation);
+    margin-left: 20px;
 }
