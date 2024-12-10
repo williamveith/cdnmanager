@@ -35,12 +35,8 @@ check-env:
 	@if [ -f .env ]; then \
 		echo "$(GREEN)Found$(RESET) | .env"; \
 	else \
-		if [ -f template.env ]; then \
-			cp template.env .env; \
-			echo "$(RED)Build Failed:$(RESET) No .env file found. New .env file create. Fill in the new .env file with your Cloudflare credentials$(RESET)"; \
-		else \
-			echo "$(RED)Build Failed:$(RESET) Missing .env and template.env. Create .env file or use template from repository"; \
-		fi; \
+		echo 'cloudflare_email=""\ncloudflare_api_key=""\naccount_id=""\nnamespace_id=""\ndomain=""' > .env; \
+		echo "$(RED)Build Failed:$(RESET) No .env file found. New .env file create. Fill in the new .env file with your Cloudflare credentials$(RESET)"; \
 		exit 1; \
 	fi
 
