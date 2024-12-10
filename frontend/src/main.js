@@ -38,7 +38,7 @@ document.querySelector('#app').innerHTML = `
         <button class="btn" onclick="searchEntry(event)">Search</button>
         <button id="clear" class="btn" onclick="clearResults()" style="display:none;">Clear</button>
     </div>
-    <div class="result" id="entryResult" style="margin-left:20px;"></div>
+    <div class="result subsection" id="entryResult"></div>
 `;
 
 document.querySelector('#app').innerHTML += `
@@ -77,7 +77,7 @@ window.updateInsertEntry = function (entryMethod = undefined) {
     switch (selectedValue) {
         case "manual":
             dynamicInsertEntryDiv.innerHTML = `
-            <div class="input-box" id="manual-insert-entry" style="margin-top:10px;margin-left:75px;">
+            <div class="input-box subsection" id="manual-insert-entry">
                 <div style="position: relative; display: inline-block;">
                     <input class="input" id="insertEntryName" type="text" spellcheck="false" placeholder="Enter name" size="40"/>
                     <svg 
@@ -99,12 +99,12 @@ window.updateInsertEntry = function (entryMethod = undefined) {
                 </div>
                 <input class="input" id="insertEntryValue" type="text" spellcheck="false" placeholder="Enter value" style="width:400px;"/>
                 <button class="btn" onclick="insertEntry()">Insert</button>
-                <div id="entryMetadata">
-                    <div class="indented metadata-entry">
+                <div id="entryMetadata" class="subsection2">
+                    <div class="metadata-entry">
                         <input class="input jsonKey" type="text" spellcheck="false" value="name" readonly style="margin-right: 5px;">
                         <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Title" required>
                     </div>
-                    <div class="indented metadata-entry">
+                    <div class="metadata-entry">
                         <input class="input jsonKey" type="text" spellcheck="false" value="external" readonly style="margin-right: 5px;">
                         <select  class="input jsonValue" id="externalMetadataToggle" style="width:422px;" required  onchange="updateExternalInternalMetadataSelector()">
                             <option value="default" selected disabled>Resource Is External</option>
@@ -112,23 +112,23 @@ window.updateInsertEntry = function (entryMethod = undefined) {
                             <option value="false">False</option>
                         </select>
                     </div>
-                    <div class="indented metadata-entry">
+                    <div class="metadata-entry">
                         <input class="input jsonKey" type="text" spellcheck="false" value="mimetype" readonly style="margin-right: 5px;">
                         <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource MimeType" required>
                     </div>
-                    <div class="indented metadata-entry">
+                    <div class="metadata-entry">
                         <input class="input jsonKey" type="text" spellcheck="false" value="location" readonly style="margin-right: 5px;">
                         <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Location (domain or owner email)" required>
                     </div>
-                    <div class="indented metadata-entry">
+                    <div class="metadata-entry">
                         <input class="input jsonKey" type="text" spellcheck="false" value="description" readonly style="margin-right: 5px;">
                         <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Description">
                     </div>
-                    <div id="cloud-storage-id-div" class="indented metadata-entry" style="display:none;">
+                    <div id="cloud-storage-id-div" class="metadata-entry" style="display:none;">
                         <input class="input jsonKey" type="text" spellcheck="false" value="cloud_storage_id" readonly style="margin-right:-5px;">
                         <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Cloud Storage ID">
                     </div>
-                    <div  id="md5checksum-div" class="indented metadata-entry" style="display:none;">
+                    <div  id="md5checksum-div" class="metadata-entry" style="display:none;">
                         <input class="input jsonKey" type="text" spellcheck="false" value="md5Checksum" readonly style="margin-right:-5px;">
                         <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource MD5 Checksum">
                     </div>
@@ -139,7 +139,7 @@ window.updateInsertEntry = function (entryMethod = undefined) {
             break;
         case "fromFile":
             dynamicInsertEntryDiv.innerHTML = `
-            <div class="input-box" id="file-insert-entry" style="margin-top:10px;margin-left:75px;">
+            <div class="input-box subsection2" id="file-insert-entry">
                 <input class="input" id="insertFile" type="file" accept=".csv" style="border:0px;background-color:transparent;" onchange="readFileContent(this)"/>
                 <button class="btn" onclick="insertEntryFromFile()">Insert</button>
             </div>
@@ -151,14 +151,14 @@ window.updateInsertEntry = function (entryMethod = undefined) {
         default:
             document.getElementById("insertEntrySelector").value = "default";
             dynamicInsertEntryDiv.innerHTML = `
-              <div class="result"></div>
+              <div class="result subsection"></div>
             `;
             document.getElementById("clear-insert").style.display = "none"
     }
 };
 
 document.querySelector('#app').innerHTML += `
-    <div class="input-box" id="delete-entry" style="margin-top:20px;">
+    <div class="input-box" id="delete-entry" style="margin-top:10px;">
         <label for="deleteEntryName">Delete:</label>
         <input class="input" id="deleteEntryName" type="text" spellcheck="false" placeholder="Enter UUID" size="40" onkeydown="deleteEntry(event)"/>
         <button class="btn" onclick="deleteEntry(event)">Delete</button>

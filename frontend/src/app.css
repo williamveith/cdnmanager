@@ -159,6 +159,7 @@ span.glyph.expand-trigger {
 .metadata-entry {
     display: flex;
     align-items: center;
+    margin-top: 5px;
     margin-bottom: 5px;
 }
 
@@ -168,4 +169,14 @@ span.glyph.expand-trigger {
 
 .jsonValue {
     width: 400px;
+}
+
+.subsection {
+    margin-top: 10px;
+    margin-left: 20px;
+}
+
+.subsection2 {
+    margin-top: 10px;
+    margin-left: 40px;
 }
