@@ -35,11 +35,11 @@ body {
 }
 
 @font-face {
-    font-family: "IBMPlexMono";
+    font-family: 'Glyphicons Halflings';
+    font-weight: normal;
     font-style: normal;
-    font-weight: bold;
     src: local(""),
-        url("assets/fonts/IBM_Plex_Mono/IBMPlexMono-Bold.woff2") format("woff2");
+        url('assets/fonts/glyphicons_halflings/glyphicons-halflings-regular.woff2') format('woff2');
 }
 
 #app {
@@ -140,4 +140,26 @@ span.glyph.sort-trigger {
 .subsection2 {
     margin-top: var(--elementVerticalSeparation);
     margin-left: 20px;
+}
+
+.glyphicon {
+    font-family: 'Glyphicons Halflings';
+    font-style: normal;
+    font-weight: normal;
+    line-height: 1;
+}
+
+.glyphicon-link:before {
+    content: "\e144";
+}
+
+.clipboard-message {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background-color: #333;
+    color: #fff;
+    padding: 10px;
+    border-radius: var(--corner-rounding);
+    z-index: 1000;
 }

@@ -118,7 +118,7 @@ window.updateInsertEntry = function (entryMethod = undefined) {
                     </div>
                     <div class="metadata-entry">
                         <input class="input jsonKey" type="text" spellcheck="false" value="location" readonly style="margin-right: 5px;">
-                        <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Location (domain or owner email)" required>
+                        <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Location (domain & owner email)" required>
                     </div>
                     <div class="metadata-entry">
                         <input class="input jsonKey" type="text" spellcheck="false" value="description" readonly style="margin-right: 5px;">
@@ -187,7 +187,7 @@ window.searchEntry = async function (event) {
             if (event.key != "Enter") {
                 return;
             }
-        break;
+            break;
         case "click":
         default:
             break;
@@ -245,7 +245,7 @@ window.deleteEntry = async function (event) {
             if (event.key != "Enter") {
                 return;
             }
-        break;
+            break;
         case "click":
         default:
             break;
@@ -432,24 +432,6 @@ function updateResults(content = '') {
     clearResultsButton.style.display = content ? 'inline' : 'none';
 }
 
-function displayClipboardMessage(message) {
-    const messageElement = document.createElement('div');
-    messageElement.innerText = message;
-    messageElement.style.position = 'fixed';
-    messageElement.style.bottom = '10px';
-    messageElement.style.right = '10px';
-    messageElement.style.backgroundColor = '#333';
-    messageElement.style.color = '#fff';
-    messageElement.style.padding = '10px';
-    messageElement.style.borderRadius = '5px';
-    messageElement.style.zIndex = 1000;
-
-    document.body.appendChild(messageElement);
-    setTimeout(() => {
-        document.body.removeChild(messageElement);
-    }, 2000);
-}
-
 function displayEntries(entries) {
     let tableHTML = `
         <div class="input-box" id="table-search" class="input" style="margin-top:20px;">
@@ -462,7 +444,7 @@ function displayEntries(entries) {
         </div>
         <table id="resultTable" style="margin-bottom:10px;table-layout:fixed; width:100%;">
             <colgroup>
-                <col style="width:375px;">
+                <col style="width:400px;">
                 <col style="width:400px;">
                 <col style="width:400px;">
                 <col style="width:250px;">
@@ -513,14 +495,17 @@ function displayEntries(entries) {
     entries.forEach(entry => {
         tableHTML += `
             <tr>
-                <td class="hyperlink">${entry.Name}</td>
-                <td class="clickable">${entry.Value}</td>
-                <td class="clickable">${entry.Metadata?.name ?? ''}</td>
-                <td class="clickable">${entry.Metadata?.mimetype ?? ''}</td>
-                <td class="clickable">${entry.Metadata?.location ?? ''}</td>
-                <td class="clickable">${entry.Metadata?.cloud_storage_id ?? ''}</td>
-                <td class="clickable">${entry.Metadata?.md5Checksum ?? ''}</td>
-                <td class="clickable">${entry.Metadata?.description ?? ''}</td>
+                <td>
+                    <span class="copyonclick">${entry.Name}</span>
+                    <span class="copyonclick glyphicon glyphicon-link" data-copy="https://cdn.williamveith.com/?id=${entry.Name}"></span>
+                </td>
+                <td class="copyonclick">${entry.Value}</td>
+                <td class="copyonclick">${entry.Metadata?.name ?? ''}</td>
+                <td class="copyonclick">${entry.Metadata?.mimetype ?? ''}</td>
+                <td class="copyonclick">${entry.Metadata?.location ?? ''}</td>
+                <td class="copyonclick">${entry.Metadata?.cloud_storage_id ?? ''}</td>
+                <td class="copyonclick">${entry.Metadata?.md5Checksum ?? ''}</td>
+                <td class="copyonclick">${entry.Metadata?.description ?? ''}</td>
             </tr>
         `;
     });
@@ -533,8 +518,7 @@ function displayEntries(entries) {
     updateResults(tableHTML);
 
     enableSorting();
-    enableCopying();
-    enableUUIDLinkCopying();
+    enableCopyOnClick();
 }
 
 function enableSorting() {
@@ -574,34 +558,35 @@ function enableSorting() {
     });
 }
 
-function enableCopying() {
-    document.querySelectorAll('.clickable').forEach(td => {
-        const textContent = td.textContent.trim();
-        if (textContent != '') {
-            td.addEventListener('click', () => {
-                navigator.clipboard.writeText(textContent).then(() => {
-                    displayClipboardMessage(`Copied: ${textContent}`);
-                }).catch(err => {
-                    alert(`Error copying to clipboard: ${err}`)
-                });
-            });
-        };
+function displayClipboardMessage(message) {
+    const textContent = message.trim()
+    if (textContent == '') {
+        return;
+    };
+
+    const messageElement = document.createElement('div');
+    messageElement.innerText = `Copied: ${textContent}`;
+    messageElement.className = "clipboard-message";
+
+    navigator.clipboard.writeText(textContent).then(() => {
+        document.body.appendChild(messageElement);
+        setTimeout(() => {
+            document.body.removeChild(messageElement);
+        }, 2000);
+    }).catch(err => {
+        alert(`Error copying to clipboard: ${err}`)
     });
 }
 
-function enableUUIDLinkCopying() {
-    document.querySelectorAll('.hyperlink').forEach(td => {
-        const textContent = td.textContent.trim();
-        if (textContent != '') {
-            td.addEventListener('click', () => {
-                const hyperlink = `https://cdn.williamveith.com/?id=${textContent}`
-                navigator.clipboard.writeText(hyperlink).then(() => {
-                    displayClipboardMessage(`Copied: ${hyperlink}`);
-                }).catch(err => {
-                    alert(`Error copying to clipboard: ${err}`)
-                });
-            });
-        };
+function enableCopyOnClick() {
+    document.querySelectorAll('.copyonclick').forEach(element => {
+        element.addEventListener('click', (e) => {
+            let textValue = e.target.dataset.copy;
+            if(textValue === undefined) {
+                textValue = e.target.innerText;
+            }
+            displayClipboardMessage(textValue || '');
+        });
     });
 }
 
@@ -629,23 +614,25 @@ function displayApproximateSearchSort(data) {
     const tableBody = document.getElementById("resultTableBody");
     tableBody.innerHTML = "";
 
-    data.forEach(row => {
+    data.forEach(entry => {
         tableBody.innerHTML += `
             <tr>
-                <td class="hyperlink">${row.Name}</td>
-                <td class="clickable">${row.Value}</td>
-                <td class="clickable">${row.Metadata?.name ?? ''}</td>
-                <td class="clickable">${row.Metadata?.mimetype ?? ''}</td>
-                <td class="clickable">${row.Metadata?.location ?? ''}</td>
-                <td class="clickable">${row.Metadata?.cloud_storage_id ?? ''}</td>
-                <td class="clickable">${row.Metadata?.md5Checksum ?? ''}</td>
-                <td class="clickable">${row.Metadata?.description ?? ''}</td>
+                <td>
+                    <span class="copyonclick">${entry.Name}</span>
+                    <span class="copyonclick glyphicon glyphicon-link" data-copy="https://cdn.williamveith.com/?id=${entry.Name}"></span>
+                </td>
+                <td class="copyonclick">${entry.Value}</td>
+                <td class="copyonclick">${entry.Metadata?.name ?? ''}</td>
+                <td class="copyonclick">${entry.Metadata?.mimetype ?? ''}</td>
+                <td class="copyonclick">${entry.Metadata?.location ?? ''}</td>
+                <td class="copyonclick">${entry.Metadata?.cloud_storage_id ?? ''}</td>
+                <td class="copyonclick">${entry.Metadata?.md5Checksum ?? ''}</td>
+                <td class="copyonclick">${entry.Metadata?.description ?? ''}</td>
             </tr>
         `;
     });
 
     document.getElementById("numberOfRecords").innerHTML = data.length;
 
-    enableCopying();
-    enableUUIDLinkCopying();
+    enableCopyOnClick();
 }
