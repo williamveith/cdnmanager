@@ -1,8 +1,8 @@
-import './app.css';
+import './styles/app.css';
 
 import { GetEntryByName, GetEntryByValue, GetEntriesByValue, GetAllEntries, InsertKVEntryIntoDatabase, DeleteName } from '../wailsjs/go/database/Database';
 import { InsertKVEntry, DeleteKeyValue } from '../wailsjs/go/session/CloudflareSession';
-import { GenerateCSV } from "../wailsjs/go/main/App";
+import { GenerateCSV, ShowAlert } from "../wailsjs/go/main/App";
 
 import Fuse from 'fuse.js';
 
@@ -26,7 +26,7 @@ function initializeFuse(data) {
 }
 
 document.querySelector('#app').innerHTML = `
-    <div class="input-box" id="search-entry">
+    <div id="search-entry" class="section">
         <label for="searchType">Search:</label>
         <select id="searchType" style="width:292px;">
             <option value="GetAllEntries">All</option>
@@ -38,11 +38,11 @@ document.querySelector('#app').innerHTML = `
         <button class="btn" onclick="searchEntry(event)">Search</button>
         <button id="clear" class="btn" onclick="clearResults()" style="display:none;">Clear</button>
     </div>
-    <div class="result subsection" id="entryResult"></div>
+    <div class="result section" id="entryResult"></div>
 `;
 
 document.querySelector('#app').innerHTML += `
-    <div class="input-box" id="insert-entry" style="margin-top:10px;">
+    <div id="insert-entry" class="section">
         <label for="insertEntrySelector">Insert:</label>
         <select id="insertEntrySelector" style="width:292px;" onchange="updateInsertEntry()">
             <option value="default" selected disabled>Select Insertion Method</option>
@@ -53,6 +53,14 @@ document.querySelector('#app').innerHTML += `
         <button id="clear-insert" class="btn" onclick="updateInsertEntry('')" style="display:none;">Clear</button>
     </div>
     <div  class="result" id="dynamicInsertEntry"></div>
+`;
+
+document.querySelector('#app').innerHTML += `
+    <div id="delete-entry" class="section">
+        <label for="deleteEntryName">Delete:</label>
+        <input class="input" id="deleteEntryName" type="text" spellcheck="false" placeholder="Enter UUID" size="40" onkeydown="deleteEntry(event) required"/>
+        <button class="btn" onclick="deleteEntry(event)">Delete</button>
+    </div>
 `;
 
 window.updateExternalInternalMetadataSelector = function () {
@@ -77,7 +85,7 @@ window.updateInsertEntry = function (entryMethod = undefined) {
     switch (selectedValue) {
         case "manual":
             dynamicInsertEntryDiv.innerHTML = `
-            <div class="input-box subsection" id="manual-insert-entry">
+            <div class="section" id="manual-insert-entry">
                 <div style="position: relative; display: inline-block;">
                     <input class="input" id="insertEntryName" type="text" spellcheck="false" placeholder="Enter name" size="40"/>
                     <svg 
@@ -99,7 +107,7 @@ window.updateInsertEntry = function (entryMethod = undefined) {
                 </div>
                 <input class="input" id="insertEntryValue" type="text" spellcheck="false" placeholder="Enter value" style="width:400px;"/>
                 <button class="btn" onclick="insertEntry()">Insert</button>
-                <div id="entryMetadata" class="subsection2">
+                <div id="entryMetadata" class="section">
                     <div class="metadata-entry">
                         <input class="input jsonKey" type="text" spellcheck="false" value="name" readonly style="margin-right: 5px;">
                         <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Title" required>
@@ -139,7 +147,7 @@ window.updateInsertEntry = function (entryMethod = undefined) {
             break;
         case "fromFile":
             dynamicInsertEntryDiv.innerHTML = `
-            <div class="input-box subsection2" id="file-insert-entry">
+            <div class="section" id="file-insert-entry">
                 <input class="input" id="insertFile" type="file" accept=".csv" style="border:0px;background-color:transparent;" onchange="readFileContent(this)"/>
                 <button class="btn" onclick="insertEntryFromFile()">Insert</button>
             </div>
@@ -151,19 +159,11 @@ window.updateInsertEntry = function (entryMethod = undefined) {
         default:
             document.getElementById("insertEntrySelector").value = "default";
             dynamicInsertEntryDiv.innerHTML = `
-              <div class="result subsection"></div>
+              <div class="result section"></div>
             `;
             document.getElementById("clear-insert").style.display = "none"
     }
 };
-
-document.querySelector('#app').innerHTML += `
-    <div class="input-box" id="delete-entry">
-        <label for="deleteEntryName">Delete:</label>
-        <input class="input" id="deleteEntryName" type="text" spellcheck="false" placeholder="Enter UUID" size="40" onkeydown="deleteEntry(event)"/>
-        <button class="btn" onclick="deleteEntry(event)">Delete</button>
-    </div>
-`;
 
 const searchTypeElement = document.getElementById("searchType");
 const entryValueElement = document.getElementById("entryValue");
@@ -197,7 +197,7 @@ window.searchEntry = async function (event) {
     const searchType = searchTypeElement.value;
 
     if (searchType !== "GetAllEntries" && value === "") {
-        updateResults("Please enter a search value.");
+        ShowAlert("Please enter a search value.");
         return;
     }
 
@@ -250,10 +250,19 @@ window.deleteEntry = async function (event) {
         default:
             break;
     }
-    const uuid = document.getElementById("deleteEntryName").value.trim();
-    await DeleteKeyValue(uuid);
-    await DeleteName(uuid)
-    clearSuccessfulDelete();
+    try {
+        const uuid = getUUIDFromString(document.getElementById("deleteEntryName").value);
+        if (uuid == '') {
+            ShowAlert("Must enter a valid UUID\nUse Search All to see a list of all current UUIDs");
+            clearDeleteField();
+            return;
+        }
+        await DeleteKeyValue(uuid);
+        await DeleteName(uuid)
+        clearDeleteField();
+    } catch (err) {
+        ShowAlert(`Error deleting record. ${err}`);
+    }
 }
 
 window.clearResults = function () {
@@ -261,7 +270,7 @@ window.clearResults = function () {
     entryValueElement.value = '';
 };
 
-window.clearSuccessfulDelete = function () {
+window.clearDeleteField = function () {
     document.getElementById("deleteEntryName").value = ''
 }
 
@@ -301,13 +310,13 @@ window.insertEntry = async function () {
 
     // Validate required fields
     if (!name || !value) {
-        alert("Please provide both Name and Value.");
+        ShowAlert("Please provide both Name and Value.");
         return;
     }
 
     // Check if 'external' is selected
     if (metadata['external'] === undefined || metadata['external'] === 'default') {
-        alert("Please select whether the resource is external.");
+        ShowAlert("Please select whether the resource is external.");
         return;
     }
 
@@ -319,12 +328,12 @@ window.insertEntry = async function () {
         if (response && response.success) {
             await InsertKVEntryIntoDatabase(name, value, metadataString);
             updateInsertEntry("");
-            alert(`Successfully inserted ${metadata["name"]}`)
+            ShowAlert(`Successfully inserted ${metadata["name"]}`)
         } else {
-            alert('Failed to insert entry: ' + response.errors.join(', '));
+            ShowAlert('Failed to insert entry: ' + response.errors.join(', '));
         }
     } catch (error) {
-        alert(`An error occurred while inserting the entry. ${error}`);
+        ShowAlert(`An error occurred while inserting the entry. ${error}`);
     }
 };
 
@@ -398,13 +407,13 @@ window.insertEntryFromFile = async function () {
 
         // Validate required fields
         if (!name || !value) {
-            alert("Please provide both Name and Value.");
+            ShowAlert("Please provide both Name and Value.");
             return;
         }
 
         // Check if 'external' is selected
         if (metadata['external'] === undefined) {
-            alert("Please select whether the resource is external.");
+            ShowAlert("Please select whether the resource is external.");
             return;
         }
 
@@ -415,13 +424,13 @@ window.insertEntryFromFile = async function () {
             const response = await InsertKVEntry(name, value, metadataString);
             if (response && response.success) {
                 await InsertKVEntryIntoDatabase(name, value, metadataString);
-                alert(`Successfully inserted ${metadata["name"]}`)
+                ShowAlert(`Successfully inserted ${metadata["name"]}`)
                 clearInsertFromFile();
             } else {
-                alert('Failed to insert entry: ' + response.errors.join(', '));
+                ShowAlert('Failed to insert entry: ' + response.errors.join(', '));
             }
         } catch (error) {
-            alert('An error occurred while inserting the entry.');
+            ShowAlert(`An error occurred while inserting the entry. ${error}`);
         }
     }
 };
@@ -434,13 +443,10 @@ function updateResults(content = '') {
 
 function displayEntries(entries) {
     let tableHTML = `
-        <div class="input-box" id="table-search" class="input" style="margin-top:20px;">
+        <div class="section" id="table-search">
             <label for="approximateSearchValue" style="font-style:italic;">Search Table:</label>
             <input class="input" id="approximateSearchValue" type="text" autocomplete="off" spellcheck="false" placeholder="Search..." oninput="approximateSearch()" style="width:400px;"/>
-        </div>
-        <div style="margin-top:20px;font-style:italic;">
-            <label for="numberOfRecords">Number of Records Found:</label>
-            <span id="numberOfRecords">${entries.length}</span>
+            <span id="numberOfRecords" style="font-style:italic;">${entries.length} Records</span>
         </div>
         <table id="resultTable" style="margin-bottom:10px;table-layout:fixed; width:100%;">
             <colgroup>
@@ -574,7 +580,7 @@ function displayClipboardMessage(message) {
             document.body.removeChild(messageElement);
         }, 2000);
     }).catch(err => {
-        alert(`Error copying to clipboard: ${err}`)
+        ShowAlert(`Error copying to clipboard: ${err}`)
     });
 }
 
@@ -582,7 +588,7 @@ function enableCopyOnClick() {
     document.querySelectorAll('.copyonclick').forEach(element => {
         element.addEventListener('click', (e) => {
             let textValue = e.target.dataset.copy;
-            if(textValue === undefined) {
+            if (textValue === undefined) {
                 textValue = e.target.innerText;
             }
             displayClipboardMessage(textValue || '');
@@ -632,7 +638,7 @@ function displayApproximateSearchSort(data) {
         `;
     });
 
-    document.getElementById("numberOfRecords").innerHTML = data.length;
+    document.getElementById("numberOfRecords").innerHTML = `${data.length} Records`;
 
     enableCopyOnClick();
 }

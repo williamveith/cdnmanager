@@ -24,7 +24,7 @@ var schemaFS embed.FS
 //go:embed all:frontend/dist
 var assets embed.FS
 
-//go:embed frontend/src/assets/img/appicon.png
+//go:embed frontend/src/assets/images/appicon.png
 var icon []byte
 
 //go:embed .env

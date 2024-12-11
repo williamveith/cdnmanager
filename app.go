@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type App struct {
@@ -42,6 +44,14 @@ func (a *App) GenerateCSV() (string, error) {
 	path, err := SaveTemplateFile()
 	openInFinder(path)
 	return path, err
+}
+
+func (a *App) ShowAlert(message string) {
+	runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
+		Title:   "Alert",
+		Message: message,
+		Type:    runtime.InfoDialog,
+	})
 }
 
 func (a *App) startup(ctx context.Context) {

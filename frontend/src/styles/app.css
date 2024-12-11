@@ -3,8 +3,10 @@
     --input-background: rgba(255, 255, 255, 1);
     --corner-rounding: 3px;
     --line-spacing: 30px;
-    --elementVerticalSeparation: 10px;
+    --elementVerticalSeparation: 20px;
     --table-cell-padding: 5px;
+    --main-background-color: #2d076b9d;
+    --overlay-background-color: #000000;
 }
 
 
@@ -14,7 +16,7 @@
 }
 
 html {
-    background-color: #2d076b9d;
+    background-color: var(--main-background-color);
     text-align: left;
     color: white;
 }
@@ -31,7 +33,7 @@ body {
     font-style: normal;
     font-weight: 400;
     src: local(""),
-        url("assets/fonts/IBM_Plex_Mono/IBMPlexMono-Regular.woff2") format("woff2");
+        url("../assets/fonts/IBM_Plex_Mono/IBMPlexMono-Regular.woff2") format("woff2");
 }
 
 @font-face {
@@ -39,7 +41,7 @@ body {
     font-weight: normal;
     font-style: normal;
     src: local(""),
-        url('assets/fonts/glyphicons_halflings/glyphicons-halflings-regular.woff2') format('woff2');
+        url('../assets/fonts/glyphicons_halflings/glyphicons-halflings-regular.woff2') format('woff2');
 }
 
 #app {
@@ -80,8 +82,8 @@ span.glyph.sort-trigger {
     cursor: pointer;
 }
 
-.input-box .input,
-.input-box select {
+.section .input,
+.section select {
     height: 30px;
     line-height: var(--line-spacing);
     border: var(--border-style);
@@ -92,17 +94,17 @@ span.glyph.sort-trigger {
     -webkit-font-smoothing: antialiased;
 }
 
-.input-box .input:hover,
-.input-box select:hover {
+.section .input:hover,
+.section select:hover {
     background-color: var(--input-background);
 }
 
-.input-box .input:focus,
-.input-box select:focus {
+.section .input:focus,
+.section select:focus {
     background-color: var(--input-background);
 }
 
-.input-box .btn {
+.section .btn {
     width: 60px;
     height: 30px;
     line-height: var(--line-spacing);
@@ -113,7 +115,7 @@ span.glyph.sort-trigger {
     cursor: pointer;
 }
 
-.input-box .btn:hover {
+.section .btn:hover {
     background-image: linear-gradient(to top, #cfd9df 0%, #2e86b682 100%);
     color: #333333;
 }
@@ -132,12 +134,7 @@ span.glyph.sort-trigger {
     width: 400px;
 }
 
-.input-box {
-    margin-top: var(--elementVerticalSeparation);
-}
-
-.subsection,
-.subsection2 {
+.section {
     margin-top: var(--elementVerticalSeparation);
     margin-left: 20px;
 }
@@ -155,11 +152,12 @@ span.glyph.sort-trigger {
 
 .clipboard-message {
     position: fixed;
-    bottom: 10px;
+    bottom: 20px;
     right: 10px;
-    background-color: #333;
+    background-color: var(--overlay-background-color);
     color: #fff;
-    padding: 10px;
+    padding: var(--table-cell-padding);
+    border: var(--border-style);
     border-radius: var(--corner-rounding);
     z-index: 1000;
 }
