@@ -8,9 +8,11 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "vite": "^3.0.7"
+    "vite": "^3.0.7",
+    "rollup": "^2.79.2"
   },
   "dependencies": {
-    "fuse.js": "^7.0.0"
+    "fuse.js": "^7.0.0",
+    "rollup": "^2.79.2"
   }
 }

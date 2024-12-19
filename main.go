@@ -46,19 +46,17 @@ func loadEmbeddedEnv() {
 func initializeDatabase(dbPath string, schema []byte) *database.Database {
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		fmt.Println("Database not found. Creating a new one...")
-		return database.NewDatabaseFromSchema(dbPath, schema)
 	}
-	return database.NewDatabase(dbPath)
+	return database.NewDatabase(dbPath, schema)
 }
 
 func SyncFromCloudflare() {
 	cloudflareSize, storageKeys := cloudflareSession.Size()
-	if cdnDB.Size() != cloudflareSize {
+	if cdnDB.Size("records") != cloudflareSize {
 		fmt.Println("Initializing Table With Cloudflare Values...")
 		entries := cloudflareSession.GetAllEntriesFromKeys(storageKeys)
-		cdnDB.DropTable()
-		cdnDB.CreateTable()
-		cdnDB.InsertEntries(entries)
+		cdnDB.RecreateTable("records")
+		cdnDB.InsertEntries("records", entries)
 	} else {
 		fmt.Println("Existing Database Up To Date")
 	}

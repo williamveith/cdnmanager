@@ -14,6 +14,7 @@ import (
 
 type Database struct {
 	dbName string
+	schema string
 	db     *sql.DB
 	lock   sync.Mutex
 }
@@ -22,16 +23,7 @@ func (cdb *Database) GetFileName() string {
 	return cdb.dbName
 }
 
-func NewDatabase(dbName string) *Database {
-	db, _ := sql.Open("sqlite3", dbName)
-
-	return &Database{
-		dbName: dbName,
-		db:     db,
-	}
-}
-
-func NewDatabaseFromSchema(dbName string, schema []byte) *Database {
+func NewDatabase(dbName string, schema []byte) *Database {
 	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
 		log.Fatalf("Failed to open SQLite database: %v", err)
@@ -45,34 +37,50 @@ func NewDatabaseFromSchema(dbName string, schema []byte) *Database {
 
 	return &Database{
 		dbName: dbName,
+		schema: string(schema),
 		db:     db,
 	}
 }
 
-func (cdb *Database) CreateTable() {
+func (cdb *Database) RecreateTable(tableName string) error {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
-	cdb.db.Exec(`
-		CREATE TABLE IF NOT EXISTS records (
-			name TEXT PRIMARY KEY,
-			value TEXT,
-			metadata TEXT
-		)
-	`)
+	createStmt := ""
+	statements := strings.Split(cdb.schema, ";")
+	for _, stmt := range statements {
+		stmt = strings.TrimSpace(stmt)
+		if strings.HasPrefix(stmt, fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s", tableName)) {
+			createStmt = stmt
+			break
+		}
+	}
+
+	if createStmt == "" {
+		return fmt.Errorf("table %s not found in schema file", tableName)
+	}
+
+	// Drop the table
+	_, err := cdb.db.Exec(fmt.Sprintf(`DROP TABLE IF EXISTS %s`, tableName))
+	if err != nil {
+		return fmt.Errorf("failed to drop table %s: %w", tableName, err)
+	}
+
+	// Recreate the table
+	_, err = cdb.db.Exec(createStmt)
+	if err != nil {
+		return fmt.Errorf("failed to create table %s: %w", tableName, err)
+	}
+
+	return nil
 }
 
-func (cdb *Database) DropTable() {
+func (cdb *Database) GetEntryByName(tableName string, name string) models.Entry {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
-	cdb.db.Exec(`DROP TABLE IF EXISTS records`)
-}
-
-func (cdb *Database) GetEntryByName(name string) models.Entry {
-	cdb.lock.Lock()
-	defer cdb.lock.Unlock()
+	query := fmt.Sprintf(`SELECT value, metadata FROM %s WHERE name = ?`, tableName)
 	var value, metadataStr string
-	_ = cdb.db.QueryRow(`SELECT value, metadata FROM records WHERE name = ?`, name).Scan(&value, &metadataStr)
+	_ = cdb.db.QueryRow(query, name).Scan(&value, &metadataStr)
 	metadata, _ := models.MetadataFromJSONString(metadataStr)
 	entry := models.Entry{
 		Name:     name,
@@ -82,11 +90,12 @@ func (cdb *Database) GetEntryByName(name string) models.Entry {
 	return entry
 }
 
-func (cdb *Database) GetEntryByValue(value string) models.Entry {
+func (cdb *Database) GetEntryByValue(tableName string, value string) models.Entry {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
+	query := fmt.Sprintf(`SELECT name, metadata FROM %s WHERE value = ?`, tableName)
 	var name, metadataStr string
-	_ = cdb.db.QueryRow(`SELECT name, metadata FROM records WHERE value = ?`, value).Scan(&name, &metadataStr)
+	_ = cdb.db.QueryRow(query, value).Scan(&name, &metadataStr)
 	metadata, _ := models.MetadataFromJSONString(metadataStr)
 	entry := models.Entry{
 		Name:     name,
@@ -96,11 +105,11 @@ func (cdb *Database) GetEntryByValue(value string) models.Entry {
 	return entry
 }
 
-func (cdb *Database) GetEntriesByValue(value string) []models.Entry {
+func (cdb *Database) GetEntriesByValue(tableName string, value string) []models.Entry {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
-
-	rows, _ := cdb.db.Query(`SELECT name, value, metadata FROM records WHERE value = ?`, value)
+	query := fmt.Sprintf(`SELECT name, value, metadata FROM %s WHERE value = ?`, tableName)
+	rows, _ := cdb.db.Query(query, value)
 	defer rows.Close()
 
 	var entries []models.Entry
@@ -118,11 +127,12 @@ func (cdb *Database) GetEntriesByValue(value string) []models.Entry {
 	return entries
 }
 
-func (cdb *Database) GetAllEntries() []models.Entry {
+func (cdb *Database) GetAllEntries(tableName string) []models.Entry {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
-	rows, _ := cdb.db.Query(`SELECT name, value, metadata FROM records`)
+	query := fmt.Sprintf("SELECT name, value, metadata FROM %s", tableName)
+	rows, _ := cdb.db.Query(query)
 	defer rows.Close()
 
 	var entries []models.Entry
@@ -140,7 +150,7 @@ func (cdb *Database) GetAllEntries() []models.Entry {
 	return entries
 }
 
-func (cdb *Database) InsertEntry(datavalues models.Entry) {
+func (cdb *Database) InsertEntry(tableName string, datavalues models.Entry) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
@@ -150,10 +160,12 @@ func (cdb *Database) InsertEntry(datavalues models.Entry) {
 	}
 	defer tx.Rollback()
 
-	stmt, _ := tx.Prepare(`
-		INSERT OR REPLACE INTO records (name, value, metadata)
+	query := fmt.Sprintf(`
+		INSERT OR REPLACE INTO %s (name, value, metadata)
 		VALUES (?, ?, ?)
-	`)
+	`, tableName)
+
+	stmt, _ := tx.Prepare(query)
 	defer stmt.Close()
 	metadata, _ := datavalues.Metadata.ToJSONString()
 	stmt.Exec(datavalues.Name, datavalues.Value, metadata)
@@ -163,17 +175,17 @@ func (cdb *Database) InsertEntry(datavalues models.Entry) {
 	}
 }
 
-func (cdb *Database) InsertKVEntryIntoDatabase(name string, value string, metadata string) {
+func (cdb *Database) InsertKVEntryIntoDatabase(tableName string, name string, value string, metadata string) {
 	Metadata, _ := models.MetadataFromJSONString(metadata)
 	newEntry := models.Entry{
 		Name:     name,
 		Metadata: Metadata,
 		Value:    value,
 	}
-	cdb.InsertEntry(newEntry)
+	cdb.InsertEntry(tableName, newEntry)
 }
 
-func (cdb *Database) InsertEntries(datavalues []models.Entry) {
+func (cdb *Database) InsertEntries(tableName string, datavalues []models.Entry) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
@@ -183,10 +195,12 @@ func (cdb *Database) InsertEntries(datavalues []models.Entry) {
 	}
 	defer tx.Rollback()
 
-	stmt, _ := tx.Prepare(`
-		INSERT OR REPLACE INTO records (name, value, metadata)
+	query := fmt.Sprintf(`
+		INSERT OR REPLACE INTO %s (name, value, metadata)
 		VALUES (?, ?, ?)
-	`)
+	`, tableName)
+
+	stmt, _ := tx.Prepare(query)
 	defer stmt.Close()
 
 	for _, datavalue := range datavalues {
@@ -200,17 +214,18 @@ func (cdb *Database) InsertEntries(datavalues []models.Entry) {
 	}
 }
 
-func (cdb *Database) DeleteName(key string) {
+func (cdb *Database) DeleteName(tableName string, key string) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
-	_, _ = cdb.db.Exec(`DELETE FROM records WHERE name = ?`, key)
+	query := fmt.Sprintf(`DELETE FROM %s WHERE name = ?`, tableName)
+	_, _ = cdb.db.Exec(query, key)
 }
 
-func (cdb *Database) DeleteNames(names []string) {
+func (cdb *Database) DeleteNames(tableName string, names []string) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
-	query := `DELETE FROM records WHERE name IN (?` + strings.Repeat(",?", len(names)-1) + `)`
+	query := fmt.Sprintf(`DELETE FROM %s WHERE name IN (?`+strings.Repeat(",?", len(names)-1)+`)`, tableName)
 	args := make([]interface{}, len(names))
 	for i, name := range names {
 		args[i] = name
@@ -218,20 +233,20 @@ func (cdb *Database) DeleteNames(names []string) {
 	cdb.db.Exec(query, args...)
 }
 
-func (cdb *Database) DeleteEntry(entry models.Entry) {
-	cdb.DeleteName(entry.Name)
+func (cdb *Database) DeleteEntry(tableName string, entry models.Entry) {
+	cdb.DeleteName(tableName, entry.Name)
 }
 
-func (cdb *Database) DeleteEntries(entries []models.Entry) {
+func (cdb *Database) DeleteEntries(tableName string, entries []models.Entry) {
 	for _, entry := range entries {
-		cdb.DeleteEntry(entry)
+		cdb.DeleteEntry(tableName, entry)
 	}
 }
 
-func (cdb *Database) Size() int {
+func (cdb *Database) Size(tableName string) int {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
-	query := `SELECT COUNT(*) FROM records`
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM %s`, tableName)
 
 	var rowCount int
 	cdb.db.QueryRow(query).Scan(&rowCount)

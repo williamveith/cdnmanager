@@ -8,6 +8,7 @@ import Fuse from 'fuse.js';
 
 let fuse;
 
+const tableName = "records"
 /**
  * Configure Fuse.js options
  * 
@@ -205,18 +206,18 @@ window.searchEntry = async function (event) {
         window.cachedEntries = [];
         switch (searchType) {
             case "GetEntryByName":
-                const entryByName = await GetEntryByName(getUUIDFromString(value));
+                const entryByName = await GetEntryByName(tableName, getUUIDFromString(value));
                 if (entryByName?.Name) cachedEntries.push(entryByName);
                 break;
             case "GetEntryByValue":
-                const entryByValue = await GetEntryByValue(value);
+                const entryByValue = await GetEntryByValue(tableName, value);
                 if (entryByValue?.Name) cachedEntries.push(entryByValue);
                 break;
             case "GetEntriesByValue":
-                cachedEntries = await GetEntriesByValue(value);
+                cachedEntries = await GetEntriesByValue(tableName, value);
                 break;
             case "GetAllEntries":
-                cachedEntries = await GetAllEntries();
+                cachedEntries = await GetAllEntries(tableName);
                 break;
             default:
                 updateResults("Invalid search type.");
@@ -326,7 +327,7 @@ window.insertEntry = async function () {
         const metadataString = JSON.stringify(metadata)
         const response = await InsertKVEntry(name, value, metadataString);
         if (response && response.success) {
-            await InsertKVEntryIntoDatabase(name, value, metadataString);
+            await InsertKVEntryIntoDatabase(tableName, name, value, metadataString);
             updateInsertEntry("");
             ShowAlert(`Successfully inserted ${metadata["name"]}`)
         } else {
@@ -421,9 +422,9 @@ window.insertEntryFromFile = async function () {
             // InsertKVEntry to add to Cloudflare
             // InsertKVEntryIntoDatabase to add to local database
             const metadataString = JSON.stringify(metadata);
-            const response = await InsertKVEntry(name, value, metadataString);
+            const response = await InsertKVEntry(tableName, name, value, metadataString);
             if (response && response.success) {
-                await InsertKVEntryIntoDatabase(name, value, metadataString);
+                await InsertKVEntryIntoDatabase(tableName, name, value, metadataString);
                 ShowAlert(`Successfully inserted ${metadata["name"]}`)
                 clearInsertFromFile();
             } else {
