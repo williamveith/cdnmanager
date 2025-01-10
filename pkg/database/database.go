@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"cdnmanager/pkg/models"
+	models "cdnmanager/pkg/proto"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -75,14 +75,14 @@ func (cdb *Database) RecreateTable(tableName string) error {
 	return nil
 }
 
-func (cdb *Database) GetEntryByName(tableName string, name string) models.Entry {
+func (cdb *Database) GetEntryByName(tableName string, name string) *models.Entry {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 	query := fmt.Sprintf(`SELECT value, metadata FROM %s WHERE name = ?`, tableName)
 	var value, metadataStr string
 	_ = cdb.db.QueryRow(query, name).Scan(&value, &metadataStr)
 	metadata, _ := models.MetadataFromJSONString(metadataStr)
-	entry := models.Entry{
+	entry := &models.Entry{
 		Name:     name,
 		Metadata: metadata,
 		Value:    value,
@@ -90,14 +90,14 @@ func (cdb *Database) GetEntryByName(tableName string, name string) models.Entry 
 	return entry
 }
 
-func (cdb *Database) GetEntryByValue(tableName string, value string) models.Entry {
+func (cdb *Database) GetEntryByValue(tableName string, value string) *models.Entry {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 	query := fmt.Sprintf(`SELECT name, metadata FROM %s WHERE value = ?`, tableName)
 	var name, metadataStr string
 	_ = cdb.db.QueryRow(query, value).Scan(&name, &metadataStr)
 	metadata, _ := models.MetadataFromJSONString(metadataStr)
-	entry := models.Entry{
+	entry := &models.Entry{
 		Name:     name,
 		Metadata: metadata,
 		Value:    value,
@@ -150,7 +150,7 @@ func (cdb *Database) GetAllEntries(tableName string) []models.Entry {
 	return entries
 }
 
-func (cdb *Database) InsertEntry(tableName string, datavalues models.Entry) {
+func (cdb *Database) InsertEntry(tableName string, datavalues *models.Entry) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
@@ -177,7 +177,7 @@ func (cdb *Database) InsertEntry(tableName string, datavalues models.Entry) {
 
 func (cdb *Database) InsertKVEntryIntoDatabase(tableName string, name string, value string, metadata string) {
 	Metadata, _ := models.MetadataFromJSONString(metadata)
-	newEntry := models.Entry{
+	newEntry := &models.Entry{
 		Name:     name,
 		Metadata: Metadata,
 		Value:    value,
@@ -185,7 +185,7 @@ func (cdb *Database) InsertKVEntryIntoDatabase(tableName string, name string, va
 	cdb.InsertEntry(tableName, newEntry)
 }
 
-func (cdb *Database) InsertEntries(tableName string, datavalues []models.Entry) {
+func (cdb *Database) InsertEntries(tableName string, datavalues []*models.Entry) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
@@ -233,11 +233,11 @@ func (cdb *Database) DeleteNames(tableName string, names []string) {
 	cdb.db.Exec(query, args...)
 }
 
-func (cdb *Database) DeleteEntry(tableName string, entry models.Entry) {
+func (cdb *Database) DeleteEntry(tableName string, entry *models.Entry) {
 	cdb.DeleteName(tableName, entry.Name)
 }
 
-func (cdb *Database) DeleteEntries(tableName string, entries []models.Entry) {
+func (cdb *Database) DeleteEntries(tableName string, entries []*models.Entry) {
 	for _, entry := range entries {
 		cdb.DeleteEntry(tableName, entry)
 	}

@@ -102,6 +102,13 @@ build: check
 	@echo "  Application          | $(shell pwd)/build/bin/$(BINARY_NAME).app"
 	@open $(shell pwd)/build/bin
 
+proto:
+	@protoc \
+	--go_out=. \
+	--go-grpc_out=. \
+	--go_opt=paths=source_relative \
+	pkg/proto/*.proto
+
 # Run the Wails dev server for testing in a live environment
 test: check
 	@$(MAKE) start-section

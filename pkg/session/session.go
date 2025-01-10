@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	"cdnmanager/pkg/models"
+	models "cdnmanager/pkg/proto"
 
 	cloudflare "github.com/cloudflare/cloudflare-go"
 )
@@ -57,20 +57,20 @@ func (cloudflareSession *CloudflareSession) GetAllKeys() []cloudflare.StorageKey
 	return resp.Result
 }
 
-func (cloudflareSession *CloudflareSession) GetAllEntries() []models.Entry {
+func (cloudflareSession *CloudflareSession) GetAllEntries() []*models.Entry {
 	storageKeys := cloudflareSession.GetAllKeys()
-	var entries []models.Entry
+	var entries []*models.Entry
 	for _, sk := range storageKeys {
-		var metadata models.Metadata
+		var metadata *models.Metadata
 
 		if sk.Metadata != nil {
 			metadataJSON, _ := json.Marshal(sk.Metadata)
 			metadata, _ = models.MetadataFromJSONString(string(metadataJSON))
 		} else {
-			metadata = models.Metadata{}
+			metadata = &models.Metadata{}
 		}
 
-		entry := models.Entry{
+		entry := &models.Entry{
 			Name:     sk.Name,
 			Metadata: metadata,
 			Value:    cloudflareSession.GetValue(sk.Name),
@@ -80,19 +80,19 @@ func (cloudflareSession *CloudflareSession) GetAllEntries() []models.Entry {
 	return entries
 }
 
-func (cloudflareSession *CloudflareSession) GetAllEntriesFromKeys(storageKeys []cloudflare.StorageKey) []models.Entry {
-	var entries []models.Entry
+func (cloudflareSession *CloudflareSession) GetAllEntriesFromKeys(storageKeys []cloudflare.StorageKey) []*models.Entry {
+	var entries []*models.Entry
 	for _, sk := range storageKeys {
-		var metadata models.Metadata
+		var metadata *models.Metadata
 
 		if sk.Metadata != nil {
 			metadataJSON, _ := json.Marshal(sk.Metadata)
 			metadata, _ = models.MetadataFromJSONString(string(metadataJSON))
 		} else {
-			metadata = models.Metadata{}
+			metadata = &models.Metadata{}
 		}
 
-		entry := models.Entry{
+		entry := &models.Entry{
 			Name:     sk.Name,
 			Metadata: metadata,
 			Value:    cloudflareSession.GetValue(sk.Name),
@@ -107,7 +107,7 @@ func (cloudflareSession *CloudflareSession) Size() (int, []cloudflare.StorageKey
 	return len(entries), entries
 }
 
-func (cloudflareSession *CloudflareSession) WriteEntry(entry models.Entry) (resp cloudflare.Response) {
+func (cloudflareSession *CloudflareSession) WriteEntry(entry *models.Entry) (resp cloudflare.Response) {
 	workersKVPairs := entryToWorkersKVPairs(entry)
 	resp, err := cloudflareSession.api.WriteWorkersKVEntries(context.Background(), cloudflareSession.account_id, cloudflare.WriteWorkersKVEntriesParams{
 		NamespaceID: cloudflareSession.namespace_id,
@@ -122,7 +122,7 @@ func (cloudflareSession *CloudflareSession) WriteEntry(entry models.Entry) (resp
 
 func (cloudflareSession *CloudflareSession) InsertKVEntry(name string, value string, metadata string) (resp cloudflare.Response) {
 	Metadata, _ := models.MetadataFromJSONString(metadata)
-	newEntry := models.Entry{
+	newEntry := &models.Entry{
 		Name:     name,
 		Metadata: Metadata,
 		Value:    value,
@@ -130,7 +130,7 @@ func (cloudflareSession *CloudflareSession) InsertKVEntry(name string, value str
 	return cloudflareSession.WriteEntry(newEntry)
 }
 
-func (cloudflareSession *CloudflareSession) WriteEntries(entries []models.Entry) {
+func (cloudflareSession *CloudflareSession) WriteEntries(entries []*models.Entry) {
 	workersKVPairs := entriesToWorkersKVPairs(entries)
 	resp, err := cloudflareSession.api.WriteWorkersKVEntries(context.Background(), cloudflareSession.account_id, cloudflare.WriteWorkersKVEntriesParams{
 		NamespaceID: cloudflareSession.namespace_id,
@@ -167,11 +167,11 @@ func (cloudflareSession *CloudflareSession) DeleteKeyValues(keys []string) {
 	fmt.Println(resp)
 }
 
-func entryToWorkersKVPairs(entry models.Entry) []*cloudflare.WorkersKVPair {
-	return entriesToWorkersKVPairs([]models.Entry{entry})
+func entryToWorkersKVPairs(entry *models.Entry) []*cloudflare.WorkersKVPair {
+	return entriesToWorkersKVPairs([]*models.Entry{entry})
 }
 
-func entriesToWorkersKVPairs(entries []models.Entry) []*cloudflare.WorkersKVPair {
+func entriesToWorkersKVPairs(entries []*models.Entry) []*cloudflare.WorkersKVPair {
 	var kvPairs []*cloudflare.WorkersKVPair
 	for _, entry := range entries {
 		var metadataMap map[string]interface{}

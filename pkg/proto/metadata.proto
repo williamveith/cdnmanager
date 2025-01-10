@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package models;
+
+option go_package = "cdnmanager/pkg/proto/models;models";
+
+// Define Metadata structure
+message Metadata {
+    string name = 1;
+    bool external = 2;
+    string mimetype = 3;
+    string location = 4;
+    string cloud_storage_id = 5;
+    string md5Checksum = 6;
+    string description = 7;
+  }
+  
+  // Define Entry structure
+  message Entry {
+    string name = 1;
+    Metadata metadata = 2;
+    string value = 3;
+  }
