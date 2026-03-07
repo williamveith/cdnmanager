@@ -25,39 +25,75 @@ var assets embed.FS
 //go:embed frontend/src/assets/images/appicon.png
 var icon []byte
 
-func initializeDatabase(dbPath string, schema []byte) *database.Database {
-	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		fmt.Println("Database not found. Creating a new one...")
-		return database.NewDatabaseFromSchema(dbPath, schema)
+const appFolderName = "cdnmanager"
+
+func initializeDatabase(dbPath string) (*database.Database, error) {
+	if _, err := os.Stat(dbPath); err == nil {
+		return database.NewDatabase(dbPath), nil
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to stat database: %w", err)
 	}
-	return database.NewDatabase(dbPath)
+
+	fmt.Println("Database not found. Creating a new one...")
+
+	schema, err := schemaFS.ReadFile("data/schema.sql")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read embedded schema: %w", err)
+	}
+
+	db := database.NewDatabaseFromSchema(dbPath, schema)
+	if db == nil {
+		return nil, fmt.Errorf("database creation returned nil")
+	}
+
+	return db, nil
+}
+
+func initializeConfig(configPath string) error {
+	if _, err := os.Stat(configPath); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to stat config: %w", err)
+	}
+
+	fmt.Println("Config not found. Creating a new one...")
+
+	return SaveConfig(configPath, Config{})
+}
+
+func appPaths() (appDir string, dbPath string, configPath string, err error) {
+	userConfigDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to determine user config directory: %w", err)
+	}
+
+	appDir = filepath.Join(userConfigDir, appFolderName)
+	dbPath = filepath.Join(appDir, "cdnmanager.sqlite3")
+	configPath = filepath.Join(appDir, "config.json")
+
+	return appDir, dbPath, configPath, nil
 }
 
 func main() {
-	schema, err := schemaFS.ReadFile("data/schema.sql")
+	appDir, dbPath, configPath, err := appPaths()
 	if err != nil {
-		fmt.Println("Failed to read embedded schema:", err)
+		fmt.Println(err)
 		return
 	}
-
-	appDataDir, err := os.UserConfigDir()
-	if err != nil {
-		fmt.Println("Failed to determine user config directory:", err)
-		return
-	}
-
-	appDir := filepath.Join(appDataDir, "cdnmanager")
-	dbPath := filepath.Join(appDir, "cdnmanager.sqlite3")
-	configPath := filepath.Join(appDir, "config.json")
 
 	if err := os.MkdirAll(appDir, 0755); err != nil {
 		fmt.Println("Failed to create app directory:", err)
 		return
 	}
 
-	cdnDB := initializeDatabase(dbPath, schema)
-	if cdnDB == nil {
-		fmt.Println("Failed to initialize database")
+	if err := initializeConfig(configPath); err != nil {
+		fmt.Println("Failed to initialize config:", err)
+		return
+	}
+
+	cdnDB, err := initializeDatabase(dbPath)
+	if err != nil {
+		fmt.Println("Failed to initialize database:", err)
 		return
 	}
 
@@ -127,8 +163,7 @@ func main() {
 			ProgramName:         "wails",
 		},
 	})
-
 	if err != nil {
-		println("Error:", err.Error())
+		fmt.Println("Error:", err)
 	}
 }

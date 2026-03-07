@@ -2,7 +2,7 @@ BINARY_NAME := cdnmanager
 BUILD_DIR := build
 BIN_DIR := $(BUILD_DIR)/bin
 
-VERSION := 1.1.1
+VERSION := 2.0.0
 VOL_NAME := CDN Manager
 APP_NAME := CDN Manager.app
 APP_SOURCE := $(BIN_DIR)/$(BINARY_NAME).app

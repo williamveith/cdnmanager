@@ -1,33 +1,31 @@
 import './styles/app.css';
 
-import { IsConfigured, SyncFromCloudflare } from '../wailsjs/go/main/App';
-import { GetEntryByName, GetEntryByValue, GetEntriesByValue, GetAllEntries, InsertKVEntryIntoDatabase, DeleteName } from '../wailsjs/go/database/Database';
-import { InsertKVEntry, DeleteKeyValue } from '../wailsjs/go/main/App';
-import { GenerateCSV, ShowAlert } from "../wailsjs/go/main/App";
+import {
+    IsConfigured,
+    SetupAndSync,
+    SyncFromCloudflare,
+    InsertKVEntry,
+    DeleteKeyValue,
+    GenerateCSV,
+    ShowAlert
+} from '../wailsjs/go/main/App';
+
+import {
+    GetEntryByName,
+    GetEntryByValue,
+    GetEntriesByValue,
+    GetAllEntries,
+    InsertKVEntryIntoDatabase,
+    DeleteName
+} from '../wailsjs/go/database/Database';
 
 import Fuse from 'fuse.js';
 
-window.addEventListener("DOMContentLoaded", async () => {
-    try {
-        const configured = await IsConfigured();
-
-        if (configured) {
-            await SyncFromCloudflare();
-        }
-    } catch (err) {
-        ShowAlert(`Startup sync failed: ${err}`);
-    }
-});
-
 let fuse;
+window.cachedEntries = [];
 
-/**
- * Configure Fuse.js options
- * 
- * keys: Define searchable fields
- * threshold: Adjust for strictness (0.0 = exact, 1.0 = very loose)
- * includeScore: Include scores to sort by relevance
- */
+const appRoot = document.querySelector('#app');
+
 const fuseOptions = {
     keys: ['Metadata.name', 'Metadata.mimetype', 'Metadata.location', 'Metadata.description'],
     threshold: 0.3,
@@ -38,48 +36,162 @@ function initializeFuse(data) {
     fuse = new Fuse(data, fuseOptions);
 }
 
-document.querySelector('#app').innerHTML = `
-    <div id="search-entry" class="section">
-        <label for="searchType">Search:</label>
-        <select id="searchType" style="width:292px;">
-            <option value="GetAllEntries">All</option>
-            <option value="GetEntryByName">By UUID</option>
-            <option value="GetEntryByValue">By URL (single)</option>
-            <option value="GetEntriesByValue">By URL (multiple)</option>
-        </select>
-        <input class="input" id="entryValue" type="text" spellcheck="false" autocomplete="off" placeholder="Enter search value" onkeydown="searchEntry(event)" style="width:400px;display:none;"/>
-        <button class="btn" onclick="searchEntry(event)">Search</button>
-        <button id="clear" class="btn" onclick="clearResults()" style="display:none;">Clear</button>
-    </div>
-    <div class="result section" id="entryResult"></div>
-`;
+window.addEventListener("DOMContentLoaded", async () => {
+    await initializeApp();
+});
 
-document.querySelector('#app').innerHTML += `
-    <div id="insert-entry" class="section">
-        <label for="insertEntrySelector">Insert:</label>
-        <select id="insertEntrySelector" style="width:292px;" onchange="updateInsertEntry()">
-            <option value="default" selected disabled>Select Insertion Method</option>
-            <option value="manual">Insert Manually</option>
-            <option value="fromFile">From File</option>
-            <option value="getBulkInsertTemplate">Download File Template</option>
-        </select>
-        <button id="clear-insert" class="btn" onclick="updateInsertEntry('')" style="display:none;">Clear</button>
-    </div>
-    <div  class="result" id="dynamicInsertEntry"></div>
-`;
+async function initializeApp() {
+    try {
+        const configured = await IsConfigured();
 
-document.querySelector('#app').innerHTML += `
-    <div id="delete-entry" class="section">
-        <label for="deleteEntryName">Delete:</label>
-        <input class="input" id="deleteEntryName" type="text" spellcheck="false" placeholder="Enter UUID" size="40" onkeydown="deleteEntry(event) required"/>
-        <button class="btn" onclick="deleteEntry(event)">Delete</button>
-    </div>
-`;
+        if (!configured) {
+            renderConfigForm();
+            return;
+        }
+
+        await SyncFromCloudflare();
+        renderMainApp();
+    } catch (err) {
+        renderConfigForm();
+        ShowAlert(`Startup failed: ${err}`);
+    }
+}
+
+function renderConfigForm() {
+    appRoot.innerHTML = `
+        <div class="section" id="config-form-section">
+            <div style="font-size:24px;font-weight:bold;margin-bottom:10px;">CDN Manager Setup</div>
+            <div style="margin-bottom:16px;">Enter your Cloudflare configuration to initialize the application.</div>
+
+            <div class="section">
+                <input class="input" id="config-cloudflare-email" type="text" spellcheck="false" placeholder="Cloudflare Email" style="width:500px;" />
+            </div>
+
+            <div class="section">
+                <input class="input" id="config-cloudflare-api-key" type="password" spellcheck="false" placeholder="Cloudflare API Key" style="width:500px;" />
+            </div>
+
+            <div class="section">
+                <input class="input" id="config-account-id" type="text" spellcheck="false" placeholder="Account ID" style="width:500px;" />
+            </div>
+
+            <div class="section">
+                <input class="input" id="config-namespace-id" type="text" spellcheck="false" placeholder="Namespace ID" style="width:500px;" />
+            </div>
+
+            <div class="section">
+                <input class="input" id="config-domain" type="text" spellcheck="false" placeholder="Domain" style="width:500px;" />
+            </div>
+
+            <div class="section" style="width:auto">
+                <button class="btn" id="save-config-button">Save & Sync</button>
+            </div>
+
+            <div class="result section" id="config-status"></div>
+        </div>
+    `;
+
+    document.getElementById("save-config-button").addEventListener("click", submitConfigForm);
+}
+
+async function submitConfigForm() {
+    const cfg = {
+        cloudflare_email: document.getElementById("config-cloudflare-email").value.trim(),
+        cloudflare_api_key: document.getElementById("config-cloudflare-api-key").value.trim(),
+        account_id: document.getElementById("config-account-id").value.trim(),
+        namespace_id: document.getElementById("config-namespace-id").value.trim(),
+        domain: document.getElementById("config-domain").value.trim()
+    };
+
+    if (
+        !cfg.cloudflare_email ||
+        !cfg.cloudflare_api_key ||
+        !cfg.account_id ||
+        !cfg.namespace_id ||
+        !cfg.domain
+    ) {
+        ShowAlert("All configuration fields are required.");
+        return;
+    }
+
+    try {
+        document.getElementById("config-status").innerHTML = "Saving configuration and syncing Cloudflare data...This could take up to 10 minutes depending on your KV size";
+        await SetupAndSync(cfg);
+        renderMainApp();
+        ShowAlert("Configuration saved and database synced.");
+    } catch (err) {
+        document.getElementById("config-status").innerHTML = "";
+        ShowAlert(`Failed to save configuration or sync database. ${err}`);
+    }
+}
+
+function renderMainApp() {
+    appRoot.innerHTML = `
+        <div id="search-entry" class="section">
+            <label for="searchType">Search:</label>
+            <select id="searchType" style="width:292px;">
+                <option value="GetAllEntries">All</option>
+                <option value="GetEntryByName">By UUID</option>
+                <option value="GetEntryByValue">By URL (single)</option>
+                <option value="GetEntriesByValue">By URL (multiple)</option>
+            </select>
+            <input class="input" id="entryValue" type="text" spellcheck="false" autocomplete="off" placeholder="Enter search value" style="width:400px;display:none;"/>
+            <button class="btn" id="search-button">Search</button>
+            <button id="clear" class="btn" style="display:none;">Clear</button>
+        </div>
+        <div class="result section" id="entryResult"></div>
+
+        <div id="insert-entry" class="section">
+            <label for="insertEntrySelector">Insert:</label>
+            <select id="insertEntrySelector" style="width:292px;">
+                <option value="default" selected disabled>Select Insertion Method</option>
+                <option value="manual">Insert Manually</option>
+                <option value="fromFile">From File</option>
+                <option value="getBulkInsertTemplate">Download File Template</option>
+            </select>
+            <button id="clear-insert" class="btn" style="display:none;">Clear</button>
+        </div>
+        <div class="result" id="dynamicInsertEntry"></div>
+
+        <div id="delete-entry" class="section">
+            <label for="deleteEntryName">Delete:</label>
+            <input class="input" id="deleteEntryName" type="text" spellcheck="false" placeholder="Enter UUID" size="40"/>
+            <button class="btn" id="delete-button">Delete</button>
+        </div>
+    `;
+
+    const searchTypeElement = document.getElementById("searchType");
+    const entryValueElement = document.getElementById("entryValue");
+    const clearResultsButton = document.getElementById("clear");
+    const insertEntrySelector = document.getElementById("insertEntrySelector");
+    const clearInsertButton = document.getElementById("clear-insert");
+    const deleteEntryName = document.getElementById("deleteEntryName");
+
+    searchTypeElement.addEventListener('change', () => {
+        if (searchTypeElement.value === "GetAllEntries") {
+            entryValueElement.style.display = 'none';
+            entryValueElement.value = '';
+        } else {
+            entryValueElement.style.display = 'inline';
+        }
+    });
+
+    document.getElementById("search-button").addEventListener("click", searchEntry);
+    entryValueElement.addEventListener("keydown", searchEntry);
+    clearResultsButton.addEventListener("click", clearResults);
+
+    insertEntrySelector.addEventListener("change", () => updateInsertEntry());
+    clearInsertButton.addEventListener("click", () => updateInsertEntry(""));
+
+    document.getElementById("delete-button").addEventListener("click", deleteEntry);
+    deleteEntryName.addEventListener("keydown", deleteEntry);
+}
 
 window.updateExternalInternalMetadataSelector = function () {
     const selectedValue = document.getElementById("externalMetadataToggle").value;
     const cloudStorageDiv = document.getElementById("cloud-storage-id-div");
     const md5ChecksumDiv = document.getElementById("md5checksum-div");
+
     switch (selectedValue) {
         case "true":
             cloudStorageDiv.style.display = 'none';
@@ -90,121 +202,111 @@ window.updateExternalInternalMetadataSelector = function () {
             cloudStorageDiv.style.display = 'block';
             md5ChecksumDiv.style.display = 'block';
     }
-}
+};
 
 window.updateInsertEntry = function (entryMethod = undefined) {
-    const selectedValue = entryMethod == undefined ? document.getElementById("insertEntrySelector").value : entryMethod
+    const selectedValue = entryMethod === undefined
+        ? document.getElementById("insertEntrySelector").value
+        : entryMethod;
+
     const dynamicInsertEntryDiv = document.getElementById("dynamicInsertEntry");
+
     switch (selectedValue) {
         case "manual":
             dynamicInsertEntryDiv.innerHTML = `
-            <div class="section" id="manual-insert-entry">
-                <div style="position: relative; display: inline-block;">
-                    <input class="input" id="insertEntryName" type="text" spellcheck="false" placeholder="Enter name" size="40"/>
-                    <svg 
-                        onclick="generateUUID()" 
-                        xmlns="http://www.w3.org/2000/svg" 
-                        width="20" 
-                        height="20" 
-                        viewBox="0 0 24 24" 
-                        fill="none" 
-                        stroke="#5007b5" 
-                        stroke-width="2" 
-                        stroke-linecap="round" 
-                        stroke-linejoin="round" 
-                        style="position: absolute; top: 50%; right: 10px; transform: translateY(-50%); cursor: pointer;">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="8" x2="12" y2="16"></line>
-                        <line x1="8" y1="12" x2="16" y2="12"></line>
-                    </svg>
+                <div class="section" id="manual-insert-entry">
+                    <div style="position: relative; display: inline-block;">
+                        <input class="input" id="insertEntryName" type="text" spellcheck="false" placeholder="Enter name" size="40"/>
+                        <svg
+                            id="generate-uuid-button"
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#5007b5"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            style="position: absolute; top: 50%; right: 10px; transform: translateY(-50%); cursor: pointer;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="16"></line>
+                            <line x1="8" y1="12" x2="16" y2="12"></line>
+                        </svg>
+                    </div>
+                    <input class="input" id="insertEntryValue" type="text" spellcheck="false" placeholder="Enter value" style="width:400px;"/>
+                    <button class="btn" id="insert-entry-button">Insert</button>
+                    <div id="entryMetadata" class="section">
+                        <div class="metadata-entry">
+                            <input class="input jsonKey" type="text" spellcheck="false" value="name" readonly style="margin-right: 5px;">
+                            <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Title" required>
+                        </div>
+                        <div class="metadata-entry">
+                            <input class="input jsonKey" type="text" spellcheck="false" value="external" readonly style="margin-right: 5px;">
+                            <select class="input jsonValue" id="externalMetadataToggle" style="width:422px;" required>
+                                <option value="default" selected disabled>Resource Is External</option>
+                                <option value="true">True</option>
+                                <option value="false">False</option>
+                            </select>
+                        </div>
+                        <div class="metadata-entry">
+                            <input class="input jsonKey" type="text" spellcheck="false" value="mimetype" readonly style="margin-right: 5px;">
+                            <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource MimeType" required>
+                        </div>
+                        <div class="metadata-entry">
+                            <input class="input jsonKey" type="text" spellcheck="false" value="location" readonly style="margin-right: 5px;">
+                            <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Location (domain & owner email)" required>
+                        </div>
+                        <div class="metadata-entry">
+                            <input class="input jsonKey" type="text" spellcheck="false" value="description" readonly style="margin-right: 5px;">
+                            <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Description">
+                        </div>
+                        <div id="cloud-storage-id-div" class="metadata-entry" style="display:none;">
+                            <input class="input jsonKey" type="text" spellcheck="false" value="cloud_storage_id" readonly style="margin-right:-5px;">
+                            <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Cloud Storage ID">
+                        </div>
+                        <div id="md5checksum-div" class="metadata-entry" style="display:none;">
+                            <input class="input jsonKey" type="text" spellcheck="false" value="md5Checksum" readonly style="margin-right:-5px;">
+                            <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource MD5 Checksum">
+                        </div>
+                    </div>
                 </div>
-                <input class="input" id="insertEntryValue" type="text" spellcheck="false" placeholder="Enter value" style="width:400px;"/>
-                <button class="btn" onclick="insertEntry()">Insert</button>
-                <div id="entryMetadata" class="section">
-                    <div class="metadata-entry">
-                        <input class="input jsonKey" type="text" spellcheck="false" value="name" readonly style="margin-right: 5px;">
-                        <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Title" required>
-                    </div>
-                    <div class="metadata-entry">
-                        <input class="input jsonKey" type="text" spellcheck="false" value="external" readonly style="margin-right: 5px;">
-                        <select  class="input jsonValue" id="externalMetadataToggle" style="width:422px;" required  onchange="updateExternalInternalMetadataSelector()">
-                            <option value="default" selected disabled>Resource Is External</option>
-                            <option value="true">True</option>
-                            <option value="false">False</option>
-                        </select>
-                    </div>
-                    <div class="metadata-entry">
-                        <input class="input jsonKey" type="text" spellcheck="false" value="mimetype" readonly style="margin-right: 5px;">
-                        <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource MimeType" required>
-                    </div>
-                    <div class="metadata-entry">
-                        <input class="input jsonKey" type="text" spellcheck="false" value="location" readonly style="margin-right: 5px;">
-                        <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Location (domain & owner email)" required>
-                    </div>
-                    <div class="metadata-entry">
-                        <input class="input jsonKey" type="text" spellcheck="false" value="description" readonly style="margin-right: 5px;">
-                        <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Description">
-                    </div>
-                    <div id="cloud-storage-id-div" class="metadata-entry" style="display:none;">
-                        <input class="input jsonKey" type="text" spellcheck="false" value="cloud_storage_id" readonly style="margin-right:-5px;">
-                        <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource Cloud Storage ID">
-                    </div>
-                    <div  id="md5checksum-div" class="metadata-entry" style="display:none;">
-                        <input class="input jsonKey" type="text" spellcheck="false" value="md5Checksum" readonly style="margin-right:-5px;">
-                        <input class="input jsonValue" type="text" spellcheck="false" placeholder="Resource MD5 Checksum">
-                    </div>
-                </div>
-            </div>
-        `;
+            `;
             document.getElementById("clear-insert").style.display = "inline";
+            document.getElementById("generate-uuid-button").addEventListener("click", generateUUID);
+            document.getElementById("insert-entry-button").addEventListener("click", insertEntry);
+            document.getElementById("externalMetadataToggle").addEventListener("change", updateExternalInternalMetadataSelector);
             break;
+
         case "fromFile":
             dynamicInsertEntryDiv.innerHTML = `
-            <div class="section" id="file-insert-entry">
-                <input class="input" id="insertFile" type="file" accept=".csv" style="border:0px;background-color:transparent;" onchange="readFileContent(this)"/>
-                <button class="btn" onclick="insertEntryFromFile()">Insert</button>
-            </div>
-        `;
+                <div class="section" id="file-insert-entry">
+                    <input class="input" id="insertFile" type="file" accept=".csv" style="border:0px;background-color:transparent;"/>
+                    <button class="btn" id="insert-file-button">Insert</button>
+                </div>
+            `;
             document.getElementById("clear-insert").style.display = "inline";
+            document.getElementById("insertFile").addEventListener("change", (event) => readFileContent(event.target));
+            document.getElementById("insert-file-button").addEventListener("click", insertEntryFromFile);
             break;
+
         case "getBulkInsertTemplate":
             GenerateCSV();
         default:
             document.getElementById("insertEntrySelector").value = "default";
-            dynamicInsertEntryDiv.innerHTML = `
-              <div class="result section"></div>
-            `;
-            document.getElementById("clear-insert").style.display = "none"
+            dynamicInsertEntryDiv.innerHTML = `<div class="result section"></div>`;
+            document.getElementById("clear-insert").style.display = "none";
+            break;
     }
 };
 
-const searchTypeElement = document.getElementById("searchType");
-const entryValueElement = document.getElementById("entryValue");
-const resultElement = document.getElementById("entryResult");
-const clearResultsButton = document.getElementById("clear");
-
-searchTypeElement.addEventListener('change', () => {
-    if (searchTypeElement.value === "GetAllEntries") {
-        entryValueElement.style.display = 'none';
-        entryValueElement.value = '';
-    } else {
-        entryValueElement.style.display = 'inline';
-    }
-});
-
-window.cachedEntries = [];
-
 window.searchEntry = async function (event) {
-    switch (event.type) {
-        case "keydown":
-            if (event.key != "Enter") {
-                return;
-            }
-            break;
-        case "click":
-        default:
-            break;
+    if (event?.type === "keydown" && event.key !== "Enter") {
+        return;
     }
+
+    const entryValueElement = document.getElementById("entryValue");
+    const searchTypeElement = document.getElementById("searchType");
 
     const value = entryValueElement.value.trim();
     const searchType = searchTypeElement.value;
@@ -216,29 +318,40 @@ window.searchEntry = async function (event) {
 
     try {
         window.cachedEntries = [];
+
         switch (searchType) {
-            case "GetEntryByName":
+            case "GetEntryByName": {
                 const entryByName = await GetEntryByName(getUUIDFromString(value));
-                if (entryByName?.Name) cachedEntries.push(entryByName);
+                if (entryByName?.Name) {
+                    window.cachedEntries.push(entryByName);
+                }
                 break;
-            case "GetEntryByValue":
+            }
+
+            case "GetEntryByValue": {
                 const entryByValue = await GetEntryByValue(value);
-                if (entryByValue?.Name) cachedEntries.push(entryByValue);
+                if (entryByValue?.Name) {
+                    window.cachedEntries.push(entryByValue);
+                }
                 break;
+            }
+
             case "GetEntriesByValue":
-                cachedEntries = await GetEntriesByValue(value);
+                window.cachedEntries = await GetEntriesByValue(value) ?? [];
                 break;
+
             case "GetAllEntries":
-                cachedEntries = await GetAllEntries();
+                window.cachedEntries = await GetAllEntries() ?? [];
                 break;
+
             default:
                 updateResults("Invalid search type.");
                 return;
         }
 
-        if (cachedEntries.length > 0) {
-            initializeFuse(cachedEntries);
-            displayEntries(cachedEntries);
+        if (window.cachedEntries.length > 0) {
+            initializeFuse(window.cachedEntries);
+            displayEntries(window.cachedEntries);
         } else {
             updateResults("No entries found for the provided value.");
         }
@@ -253,44 +366,45 @@ window.removeMetaDataEntryField = function () {
 };
 
 window.deleteEntry = async function (event) {
-    switch (event.type) {
-        case "keydown":
-            if (event.key != "Enter") {
-                return;
-            }
-            break;
-        case "click":
-        default:
-            break;
+    if (event?.type === "keydown" && event.key !== "Enter") {
+        return;
     }
+
     try {
         const uuid = getUUIDFromString(document.getElementById("deleteEntryName").value);
-        if (uuid == '') {
+        if (uuid === '') {
             ShowAlert("Must enter a valid UUID\nUse Search All to see a list of all current UUIDs");
             clearDeleteField();
             return;
         }
+
         await DeleteKeyValue(uuid);
-        await DeleteName(uuid)
+        await DeleteName(uuid);
         clearDeleteField();
     } catch (err) {
         ShowAlert(`Error deleting record. ${err}`);
     }
-}
+};
 
 window.clearResults = function () {
+    const entryValueElement = document.getElementById("entryValue");
     updateResults();
-    entryValueElement.value = '';
+    if (entryValueElement) {
+        entryValueElement.value = '';
+    }
 };
 
 window.clearDeleteField = function () {
-    document.getElementById("deleteEntryName").value = ''
-}
+    const deleteField = document.getElementById("deleteEntryName");
+    if (deleteField) {
+        deleteField.value = '';
+    }
+};
 
 window.generateUUID = function () {
     const entryNameInput = document.getElementById('insertEntryName');
     entryNameInput.value = crypto.randomUUID();
-}
+};
 
 window.insertEntry = async function () {
     const metadataEntries = document.querySelectorAll('.metadata-entry');
@@ -305,7 +419,6 @@ window.insertEntry = async function () {
 
         if (valueInput.tagName.toLowerCase() === 'select') {
             value = valueInput.options[valueInput.selectedIndex].value;
-            // Convert 'external' field to boolean
             if (key === 'external') {
                 value = (value === 'true');
             }
@@ -321,27 +434,24 @@ window.insertEntry = async function () {
     const value = document.getElementById("insertEntryValue").value.trim();
     const name = document.getElementById("insertEntryName").value.trim();
 
-    // Validate required fields
     if (!name || !value) {
         ShowAlert("Please provide both Name and Value.");
         return;
     }
 
-    // Check if 'external' is selected
     if (metadata['external'] === undefined || metadata['external'] === 'default') {
         ShowAlert("Please select whether the resource is external.");
         return;
     }
 
     try {
-        // InsertKVEntry to add to cloudflare
-        // InsertKVEntryIntoDatabase to add to local database
-        const metadataString = JSON.stringify(metadata)
+        const metadataString = JSON.stringify(metadata);
         const response = await InsertKVEntry(name, value, metadataString);
+
         if (response && response.success) {
             await InsertKVEntryIntoDatabase(name, value, metadataString);
             updateInsertEntry("");
-            ShowAlert(`Successfully inserted ${metadata["name"]}`)
+            ShowAlert(`Successfully inserted ${metadata["name"]}`);
         } else {
             ShowAlert('Failed to insert entry: ' + response.errors.join(', '));
         }
@@ -355,8 +465,11 @@ window.insertFromFileContentResolver = null;
 
 window.clearInsertFromFile = function () {
     window.insertFromFileContent = null;
-    document.getElementById('insertFile').value = '';
-}
+    const insertFile = document.getElementById('insertFile');
+    if (insertFile) {
+        insertFile.value = '';
+    }
+};
 
 window.readFileContent = function (input) {
     const file = input.files[0];
@@ -375,9 +488,9 @@ window.readFileContent = function (input) {
 
         reader.readAsText(file);
         return fileContentPromise;
-    } else {
-        return Promise.reject("No file selected");
     }
+
+    return Promise.reject("No file selected");
 };
 
 window.insertEntryFromFile = async function () {
@@ -392,20 +505,21 @@ window.insertEntryFromFile = async function () {
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
         if (!line.trim()) continue;
+
         const values = line.split(',');
         const rowData = {};
+
         for (let j = 0; j < headers.length; j++) {
             rowData[headers[j]] = values[j] ? values[j].trim().replace(/\r/g, '') : '';
         }
 
-        // Build metadata object
         const metadata = {};
 
         for (const key in rowData) {
             if (key.startsWith('metadata_')) {
                 const metaKey = key.replace('metadata_', '');
                 let value = rowData[key];
-                // Handle 'external' field conversion and ignore empty/default values
+
                 if (value !== '') {
                     if (metaKey === 'external') {
                         value = (value === 'true');
@@ -418,26 +532,23 @@ window.insertEntryFromFile = async function () {
         const name = rowData['name'] ? rowData['name'].trim() : '';
         const value = rowData['value'] ? rowData['value'].trim() : '';
 
-        // Validate required fields
         if (!name || !value) {
             ShowAlert("Please provide both Name and Value.");
             return;
         }
 
-        // Check if 'external' is selected
         if (metadata['external'] === undefined) {
             ShowAlert("Please select whether the resource is external.");
             return;
         }
 
         try {
-            // InsertKVEntry to add to Cloudflare
-            // InsertKVEntryIntoDatabase to add to local database
             const metadataString = JSON.stringify(metadata);
             const response = await InsertKVEntry(name, value, metadataString);
+
             if (response && response.success) {
                 await InsertKVEntryIntoDatabase(name, value, metadataString);
-                ShowAlert(`Successfully inserted ${metadata["name"]}`)
+                ShowAlert(`Successfully inserted ${metadata["name"]}`);
                 clearInsertFromFile();
             } else {
                 ShowAlert('Failed to insert entry: ' + response.errors.join(', '));
@@ -448,8 +559,12 @@ window.insertEntryFromFile = async function () {
     }
 };
 
-
 function updateResults(content = '') {
+    const resultElement = document.getElementById("entryResult");
+    const clearResultsButton = document.getElementById("clear");
+
+    if (!resultElement || !clearResultsButton) return;
+
     resultElement.innerHTML = content;
     clearResultsButton.style.display = content ? 'inline' : 'none';
 }
@@ -458,7 +573,7 @@ function displayEntries(entries) {
     let tableHTML = `
         <div class="section" id="table-search">
             <label for="approximateSearchValue" style="font-style:italic;">Search Table:</label>
-            <input class="input" id="approximateSearchValue" type="text" autocomplete="off" spellcheck="false" placeholder="Search..." oninput="approximateSearch()" style="width:400px;"/>
+            <input class="input" id="approximateSearchValue" type="text" autocomplete="off" spellcheck="false" placeholder="Search..." style="width:400px;"/>
             <span id="numberOfRecords" style="font-style:italic;">${entries.length} Records</span>
         </div>
         <table id="resultTable" style="margin-bottom:10px;table-layout:fixed; width:100%;">
@@ -480,11 +595,11 @@ function displayEntries(entries) {
                     </th>
                     <th data-column="Value" class="sortable table-header">
                         Value
-                        <span class="glyph sort-trigger table-header">&#8645;</span>   
+                        <span class="glyph sort-trigger table-header">&#8645;</span>
                     </th>
                     <th data-column="Name" class="sortable table-header">
                         Name
-                        <span class="glyph sort-trigger">&#8645;</span> 
+                        <span class="glyph sort-trigger">&#8645;</span>
                     </th>
                     <th data-column="MimeType" class="sortable table-header">
                         Mime Type
@@ -536,12 +651,19 @@ function displayEntries(entries) {
 
     updateResults(tableHTML);
 
+    const approximateSearchValue = document.getElementById("approximateSearchValue");
+    if (approximateSearchValue) {
+        approximateSearchValue.addEventListener("input", approximateSearch);
+    }
+
     enableSorting();
     enableCopyOnClick();
 }
 
 function enableSorting() {
     const table = document.getElementById("resultTable");
+    if (!table) return;
+
     const headers = table.querySelectorAll("th.sortable");
     let sortDirection = 1;
 
@@ -556,13 +678,9 @@ function enableSorting() {
                 const aText = a.querySelector(`td:nth-child(${columnIndex})`).textContent.trim();
                 const bText = b.querySelector(`td:nth-child(${columnIndex})`).textContent.trim();
 
-                if (aText === '' && bText === '') {
-                    return 0;
-                } else if (aText === '') {
-                    return 1;
-                } else if (bText === '') {
-                    return -1;
-                }
+                if (aText === '' && bText === '') return 0;
+                if (aText === '') return 1;
+                if (bText === '') return -1;
 
                 if (!isNaN(aText) && !isNaN(bText)) {
                     return sortDirection * (parseFloat(aText) - parseFloat(bText));
@@ -578,10 +696,8 @@ function enableSorting() {
 }
 
 function displayClipboardMessage(message) {
-    const textContent = message.trim()
-    if (textContent == '') {
-        return;
-    };
+    const textContent = message.trim();
+    if (textContent === '') return;
 
     const messageElement = document.createElement('div');
     messageElement.innerText = `Copied: ${textContent}`;
@@ -593,7 +709,7 @@ function displayClipboardMessage(message) {
             document.body.removeChild(messageElement);
         }, 2000);
     }).catch(err => {
-        ShowAlert(`Error copying to clipboard: ${err}`)
+        ShowAlert(`Error copying to clipboard: ${err}`);
     });
 }
 
@@ -631,6 +747,8 @@ window.approximateSearch = function () {
 
 function displayApproximateSearchSort(data) {
     const tableBody = document.getElementById("resultTableBody");
+    if (!tableBody) return;
+
     tableBody.innerHTML = "";
 
     data.forEach(entry => {
@@ -652,6 +770,5 @@ function displayApproximateSearchSort(data) {
     });
 
     document.getElementById("numberOfRecords").innerHTML = `${data.length} Records`;
-
     enableCopyOnClick();
 }

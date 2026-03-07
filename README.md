@@ -4,7 +4,7 @@ A native desktop application for managing **Cloudflare Workers KV** through a fa
 
 CDN Manager syncs KV data into a local **SQLite** database so entries can be browsed, searched, edited, and managed from a desktop UI instead of the Cloudflare dashboard.
 
-Built with **Go**, **Wails**, and a bundled frontend, the app currently targets **macOS** as its primary release platform.
+Built with **Go**, **Wails**, and a bundled frontend, CDN Manager is now a **general-use desktop app** that can be packaged, shared, and installed through a standard macOS **DMG** installer.
 
 ---
 
@@ -12,12 +12,14 @@ Built with **Go**, **Wails**, and a bundled frontend, the app currently targets 
 
 - Native desktop app built with **Wails**
 - Local **SQLite** cache of Cloudflare Workers KV data
-- Automatic startup sync with Cloudflare
+- First-launch configuration flow for Cloudflare credentials
+- Automatic startup sync with Cloudflare once configured
 - Embedded frontend assets for standalone distribution
 - Embedded database schema initialization
 - CSV template generation for bulk insert workflows
 - Finder integration for generated files
 - Simple macOS packaging pipeline with **DMG** output
+- Shareable installer with per-user local configuration
 
 ---
 
@@ -25,33 +27,102 @@ Built with **Go**, **Wails**, and a bundled frontend, the app currently targets 
 
 On startup, CDN Manager:
 
-1. loads embedded configuration from `.env`
-2. loads the embedded SQLite schema
-3. initializes a persistent local database
-4. creates a Cloudflare session
-5. compares local data against Cloudflare KV
-6. refreshes the local database if the remote state has changed
-7. launches the desktop UI
+1. initializes a local application directory
+2. creates a local `config.json` if one does not already exist
+3. initializes a persistent local SQLite database from the embedded schema if needed
+4. checks whether the Cloudflare configuration is complete
+5. if configuration is incomplete, shows a setup form
+6. once configured, creates a Cloudflare session at runtime
+7. synchronizes Cloudflare KV data into the local database
+8. launches the full desktop UI
 
-The local database is stored outside the app bundle so it persists across rebuilds and upgrades.
+The local database and configuration are stored outside the app bundle, so they persist across rebuilds, reinstalls, and upgrades.
 
 ---
 
-## Requirements
+## Installation
+
+### macOS
+
+1. Download the latest DMG from **Releases**
+2. Open the disk image
+3. Drag **CDN Manager.app** into **Applications**
+4. Launch the application
+5. On first launch, enter your Cloudflare credentials in the setup form
+
+CDN Manager no longer requires users to clone the repository or rebuild the application just to use it.
+
+---
+
+## First Launch Setup
+
+On first launch, CDN Manager creates a local configuration file and prompts the user for:
+
+- Cloudflare email
+- Cloudflare API key
+- Cloudflare account ID
+- Workers KV namespace ID
+- domain
+
+Once that information is saved, the application initializes the Cloudflare session and syncs the local SQLite cache.
+
+---
+
+## Local Application Data
+
+On macOS, the application stores its persistent data in a path like:
+
+```text
+~/Library/Application Support/cdnmanager/
+````
+
+Important files include:
+
+```text
+~/Library/Application Support/cdnmanager/config.json
+~/Library/Application Support/cdnmanager/cdnmanager.sqlite3
+```
+
+* `config.json` stores the user's Cloudflare configuration
+* `cdnmanager.sqlite3` stores the local KV cache
+
+---
+
+## Bulk Insert Template
+
+The application can generate a CSV template for bulk insertion.
+
+Generated file:
+
+```text
+CDN Manager Bulk Insert Template.csv
+```
+
+It is written to the user's `Downloads` folder and revealed in Finder.
+
+Template columns:
+
+```csv
+name,value,metadata_name,metadata_external,metadata_mimetype,metadata_location,metadata_description,metadata_cloud_storage_id,metadata_md5Checksum
+```
+
+---
+
+## Development Requirements
 
 To build from source, install:
 
-- [Git](https://git-scm.com/downloads)
-- [Go](https://go.dev/dl/)
-- [Node.js](https://nodejs.org/)
-- npm
-- [Wails](https://wails.io/docs/gettingstarted/installation)
+* [Git](https://git-scm.com/downloads)
+* [Go](https://go.dev/dl/)
+* [Node.js](https://nodejs.org/)
+* npm
+* [Wails](https://wails.io/docs/gettingstarted/installation)
 
 Install Wails with:
 
 ```bash
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
-````
+```
 
 On macOS, you should also have:
 
@@ -61,7 +132,7 @@ Xcode Command Line Tools
 
 ---
 
-## Setup
+## Development Setup
 
 Clone the repository:
 
@@ -70,37 +141,13 @@ git clone https://github.com/williamveith/cdnmanager.git
 cd cdnmanager
 ```
 
-The application requires a `.env` file containing your Cloudflare credentials.
-
-Run:
-
-```bash
-make
-```
-
-If `.env` does not exist, the Makefile will create it and stop so you can fill in the required values.
-
-Generated `.env` template:
-
-```env
-cloudflare_email=""
-cloudflare_api_key=""
-account_id=""
-namespace_id=""
-domain=""
-```
-
-After filling in the values, run the build again.
-
----
-
-## Development
-
-Run the Wails development server:
+Run the development server:
 
 ```bash
 make test
 ```
+
+Because configuration is now handled at runtime, build-time `.env` setup is no longer required for normal app usage.
 
 ---
 
@@ -118,7 +165,7 @@ or:
 make build
 ```
 
-This runs dependency checks, validates `.env`, builds the frontend, compiles the Go backend, and packages the native app.
+This builds the frontend, compiles the Go backend, and packages the native macOS app bundle.
 
 Output:
 
@@ -155,7 +202,7 @@ make release
 This executes:
 
 ```text
-check → build → stage-dmg → dmg
+build → stage-dmg → dmg
 ```
 
 Artifacts produced:
@@ -207,47 +254,6 @@ make clean
 
 ---
 
-## Database Location
-
-On macOS, the persistent database is stored at a path like:
-
-```text
-~/Library/Application Support/cdnmanager/cdnmanager.sqlite3
-```
-
----
-
-## Bulk Insert Template
-
-The application can generate a CSV template for bulk insertion.
-
-Generated file:
-
-```text
-CDN Manager Bulk Insert Template.csv
-```
-
-It is written to the user's `Downloads` folder and revealed in Finder.
-
-Template columns:
-
-```csv
-name,value,metadata_name,metadata_external,metadata_mimetype,metadata_location,metadata_description,metadata_cloud_storage_id,metadata_md5Checksum
-```
-
----
-
-## Installation
-
-### macOS
-
-1. Download the latest DMG from Releases
-2. Open the disk image
-3. Drag **CDN Manager.app** into **Applications**
-4. Launch the application
-
----
-
 ## Project Structure
 
 ```text
@@ -255,6 +261,7 @@ cdnmanager
 ├── Makefile
 ├── README.md
 ├── app.go
+├── config.go
 ├── build
 │   ├── bin
 │   ├── darwin
@@ -294,8 +301,3 @@ cdnmanager
 ## Author
 
 William Veith
-
-```
-
-A strong GitHub README usually also includes one screenshot near the top.
-```
