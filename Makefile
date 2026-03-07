@@ -1,13 +1,21 @@
 BINARY_NAME := cdnmanager
 BUILD_DIR := build
-APP_BUNDLE  := build/bin/$(BINARY_NAME).app/Contents/MacOS/$(BINARY_NAME)
+BIN_DIR := $(BUILD_DIR)/bin
 
-# Wails build flags
-# -ldflags="-s -w" removes debugging information, making the binary smaller
-# -trimpath removes file system paths
+VERSION := 1.1.1
+VOL_NAME := CDN Manager
+APP_NAME := CDN Manager.app
+APP_SOURCE := $(BIN_DIR)/$(BINARY_NAME).app
+APP_EXEC := $(APP_SOURCE)/Contents/MacOS/$(BINARY_NAME)
+DMG_DIR := $(BUILD_DIR)/dmg
+DMG_NAME := CDN-Manager-v$(VERSION).dmg
+DMG_PATH := $(BIN_DIR)/$(DMG_NAME)
+
 WAILS_BUILD_FLAGS := -ldflags "-s -w" -trimpath
 
-# Formatting variables
+UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
+
 BOLD := \033[1m
 RESET := \033[0m
 RED := \033[1;31m
@@ -15,112 +23,113 @@ GREEN := \033[1;32m
 YELLOW := \033[1;33m
 HEADER := \033[1;34m
 
-# Default target: build the app
-all: check build
+.PHONY: all check check-wails check-env build stage-dmg dmg release test run clean start-section
+
+all: build
+
+release: clean dmg
 
 start-section:
 	@printf '\n'
-	@printf '%*s\n' "$(shell tput cols)" '' | tr ' ' '─'
+	@printf '%*s\n' "$$(tput cols 2>/dev/null || echo 80)" '' | tr ' ' '─'
 
-check:
-	@clear
-	@echo "$(HEADER)Running Checks$(RESET)"
-	@$(MAKE) check-wails
-	@$(MAKE) check-env
+check: check-wails check-env
 
-check-env:
-	@$(MAKE) start-section
-	@echo "$(HEADER)Prebuild Check: Checking .env File...\n$(RESET)"
-	
-	@if [ -f .env ]; then \
-		echo "$(GREEN)Found$(RESET) | .env"; \
-	else \
-		echo 'cloudflare_email=""\ncloudflare_api_key=""\naccount_id=""\nnamespace_id=""\ndomain=""' > .env; \
-		echo "$(RED)Build Failed:$(RESET) No .env file found. New .env file create. Fill in the new .env file with your Cloudflare credentials$(RESET)"; \
-		exit 1; \
-	fi
-
-	@EMAIL=$$(grep -E "^cloudflare_email[ ]{0,1}=[ ]{0,1}['\"].{1,64}@.{2,255}['\"]{0,1}$$" .env); \
-	if [ -z "$$EMAIL" ]; then \
-		echo "$(RED)Build Failed:$(RESET) No valid cloudflare_email in .env"; \
-		exit 1; \
-	else \
-		echo "${GREEN}Valid${RESET} | $$EMAIL"; \
-	fi
-
-	@API_KEY=$$(grep -E "^cloudflare_api_key[ ]{0,1}=[ ]{0,1}['\"].{1,}['\"]{0,1}$$" .env); \
-	if [ -z "$$API_KEY" ]; then \
-		echo "${RED}Build Failed:${RESET} Enter valid cloudflare_api_key in .env"; \
-		exit 1; \
-	else \
-		echo "${GREEN}Valid${RESET} | $${API_KEY}"; \
-	fi
-
-	@ACCOUNT_ID=$$(grep -E "^account_id[ ]{0,1}=[ ]{0,1}['\"].{1,}['\"]{0,1}$$" .env); \
-	if [ -z "$$ACCOUNT_ID" ]; then \
-		echo "${RED}Build Failed:${RESET} Enter valid account_id in .env"; \
-		exit 1; \
-	else \
-		echo "${GREEN}Valid${RESET} | $${ACCOUNT_ID}"; \
-	fi
-
-	@NAMESPACE_ID=$$(grep -E "^namespace_id[ ]{0,1}=[ ]{0,1}['\"].{1,}['\"]{0,1}$$" .env); \
-	if [ -z "$$NAMESPACE_ID" ]; then \
-		echo "${RED}Build Failed:${RESET} Enter valid namespace_id in .env"; \
-		exit 1; \
-	else \
-		echo "${GREEN}Valid${RESET} | $${NAMESPACE_ID}"; \
-	fi
-
-	@DOMAIN=$$(grep -E "^domain[ ]{0,1}=[ ]{0,1}['\"].{1,}\.{1}[a-zA-Z]{2,63}['\"]{0,1}$$" .env); \
-	if [ -z "$$DOMAIN" ]; then \
-		echo "${RED}Build Failed:${RESET} Enter valid domain in .env"; \
-		exit 1; \
-	else \
-		echo "${GREEN}Valid${RESET} | $${DOMAIN}"; \
-	fi
-	
 check-wails:
 	@$(MAKE) start-section
 	@echo "$(HEADER)Prebuild Check: Checking Wails & Dependencies...\n$(RESET)"
 	@wails doctor
 
-# Build the Wails application
+check-env:
+	@$(MAKE) start-section
+	@echo "$(HEADER)Prebuild Check: Checking .env File...\n$(RESET)"
+	@if [ -f .env ]; then \
+		echo "$(GREEN)Found$(RESET) | .env"; \
+	else \
+		printf 'cloudflare_email=""\ncloudflare_api_key=""\naccount_id=""\nnamespace_id=""\ndomain=""\n' > .env; \
+		echo "$(RED)Build Failed:$(RESET) No .env file found. Created a new .env file. Fill it in with your Cloudflare credentials."; \
+		exit 1; \
+	fi
+	@EMAIL=$$(grep -E "^cloudflare_email[ ]{0,1}=[ ]{0,1}['\"].{1,64}@.{2,255}['\"]{0,1}$$" .env); \
+	if [ -z "$$EMAIL" ]; then \
+		echo "$(RED)Build Failed:$(RESET) No valid cloudflare_email in .env"; exit 1; \
+	else \
+		echo "$(GREEN)Valid$(RESET) | $$EMAIL"; \
+	fi
+	@API_KEY=$$(grep -E "^cloudflare_api_key[ ]{0,1}=[ ]{0,1}['\"].{1,}['\"]{0,1}$$" .env); \
+	if [ -z "$$API_KEY" ]; then \
+		echo "$(RED)Build Failed:$(RESET) Enter valid cloudflare_api_key in .env"; exit 1; \
+	else \
+		echo "$(GREEN)Valid$(RESET) | $$API_KEY"; \
+	fi
+	@ACCOUNT_ID=$$(grep -E "^account_id[ ]{0,1}=[ ]{0,1}['\"].{1,}['\"]{0,1}$$" .env); \
+	if [ -z "$$ACCOUNT_ID" ]; then \
+		echo "$(RED)Build Failed:$(RESET) Enter valid account_id in .env"; exit 1; \
+	else \
+		echo "$(GREEN)Valid$(RESET) | $$ACCOUNT_ID"; \
+	fi
+	@NAMESPACE_ID=$$(grep -E "^namespace_id[ ]{0,1}=[ ]{0,1}['\"].{1,}['\"]{0,1}$$" .env); \
+	if [ -z "$$NAMESPACE_ID" ]; then \
+		echo "$(RED)Build Failed:$(RESET) Enter valid namespace_id in .env"; exit 1; \
+	else \
+		echo "$(GREEN)Valid$(RESET) | $$NAMESPACE_ID"; \
+	fi
+	@DOMAIN=$$(grep -E "^domain[ ]{0,1}=[ ]{0,1}['\"].{1,}\.{1}[a-zA-Z]{2,63}['\"]{0,1}$$" .env); \
+	if [ -z "$$DOMAIN" ]; then \
+		echo "$(RED)Build Failed:$(RESET) Enter valid domain in .env"; exit 1; \
+	else \
+		echo "$(GREEN)Valid$(RESET) | $$DOMAIN"; \
+	fi
+
 build: check
 	@$(MAKE) start-section
 	@echo "$(HEADER)Building Wails application...\n$(RESET)"
-	@if [ "$(shell uname -s)" = "Darwin" ] && [ "$(shell uname -m)" = "arm64" ]; then \
+	@if [ "$(UNAME_S)" = "Darwin" ] && [ "$(UNAME_M)" = "arm64" ]; then \
 		echo "Skipping UPX compression for macOS arm64"; \
-		wails build -clean -ldflags "-s -w" -trimpath -o $(BINARY_NAME); \
+		wails build -clean $(WAILS_BUILD_FLAGS) -o $(BINARY_NAME); \
 	else \
-		wails build -clean -ldflags "-s -w" -trimpath -upx -upxflags "--lzma" -o $(BINARY_NAME); \
+		wails build -clean $(WAILS_BUILD_FLAGS) -upx -upxflags "--lzma" -o $(BINARY_NAME); \
 	fi
-
 	@$(MAKE) start-section
 	@echo "Results:"
 	@echo "  Build                | Success"
-	@echo "  Application          | $(shell pwd)/build/bin/$(BINARY_NAME).app"
-	@open $(shell pwd)/build/bin
+	@echo "  Application          | $(shell pwd)/$(APP_SOURCE)"
+	@open "$(shell pwd)/$(BIN_DIR)"
 
-# Run the Wails dev server for testing in a live environment
+stage-dmg: build
+	@$(MAKE) start-section
+	@echo "$(HEADER)Staging DMG contents...\n$(RESET)"
+	@rm -rf "$(DMG_DIR)"
+	@mkdir -p "$(DMG_DIR)"
+	@cp -R "$(APP_SOURCE)" "$(DMG_DIR)/$(APP_NAME)"
+	@ln -s /Applications "$(DMG_DIR)/Applications"
+	@echo "$(GREEN)Staged$(RESET) | $(shell pwd)/$(DMG_DIR)"
+
+dmg: stage-dmg
+	@$(MAKE) start-section
+	@echo "$(HEADER)Creating DMG...\n$(RESET)"
+	@rm -f "$(DMG_PATH)"
+	@hdiutil create \
+		-volname "$(VOL_NAME)" \
+		-srcfolder "$(DMG_DIR)" \
+		-ov \
+		-format UDZO \
+		"$(DMG_PATH)"
+	@echo "$(GREEN)DMG Created$(RESET) | $(shell pwd)/$(DMG_PATH)"
+	@open "$(shell pwd)/$(BIN_DIR)"
+
 test: check
 	@$(MAKE) start-section
 	@echo "$(HEADER)Starting Wails dev server for testing...\n$(RESET)"
 	@wails dev
 
-# Run the application after building
 run: build
 	@$(MAKE) start-section
 	@echo "$(HEADER)Running application...\n$(RESET)"
-	./$(BINARY_NAME)
+	@"$(APP_EXEC)"
 
-# Deletes all previous builds
 clean:
-	@clear
 	@$(MAKE) start-section
-	@echo "${HEADER}Cleaning Build Directory...\n$(RESET)"
-	@find build -mindepth 1 -type d -exec rm -rf {} +
+	@echo "$(HEADER)Cleaning Build Directory...\n$(RESET)"
+	@rm -rf "$(BUILD_DIR)"
 	@echo "Build Directory Clean"
-
-# PHONY targets are not associated with real files
-.PHONY: all start-section check-wails check-env build test run clean
