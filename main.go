@@ -7,9 +7,7 @@ import (
 	"path/filepath"
 
 	"cdnmanager/pkg/database"
-	"cdnmanager/pkg/session"
 
-	"github.com/joho/godotenv"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -27,22 +25,6 @@ var assets embed.FS
 //go:embed frontend/src/assets/images/appicon.png
 var icon []byte
 
-//go:embed .env
-var embeddedEnvFile embed.FS
-
-var cdnDB *database.Database
-var cloudflareSession *session.CloudflareSession
-
-func loadEmbeddedEnv() {
-	envBytes, _ := embeddedEnvFile.ReadFile(".env")
-	envString := string(envBytes)
-	envMap, _ := godotenv.Unmarshal(envString)
-
-	for key, value := range envMap {
-		_ = os.Setenv(key, value)
-	}
-}
-
 func initializeDatabase(dbPath string, schema []byte) *database.Database {
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		fmt.Println("Database not found. Creating a new one...")
@@ -51,54 +33,35 @@ func initializeDatabase(dbPath string, schema []byte) *database.Database {
 	return database.NewDatabase(dbPath)
 }
 
-func SyncFromCloudflare() {
-	cloudflareSize, storageKeys := cloudflareSession.Size()
-	if cdnDB.Size() != cloudflareSize {
-		fmt.Println("Initializing Table With Cloudflare Values...")
-		entries := cloudflareSession.GetAllEntriesFromKeys(storageKeys)
-		cdnDB.DropTable()
-		cdnDB.CreateTable()
-		cdnDB.InsertEntries(entries)
-	} else {
-		fmt.Println("Existing Database Up To Date")
-	}
-}
-
 func main() {
-	loadEmbeddedEnv()
-
-	// Read the schema from the embedded filesystem
-	schema, schemaerror := schemaFS.ReadFile("data/schema.sql")
-	if schemaerror != nil {
-		fmt.Println("Failed to read embedded schema:", schemaerror)
+	schema, err := schemaFS.ReadFile("data/schema.sql")
+	if err != nil {
+		fmt.Println("Failed to read embedded schema:", err)
 		return
 	}
 
-	// Determine the path for the persistent database file
 	appDataDir, err := os.UserConfigDir()
 	if err != nil {
 		fmt.Println("Failed to determine user config directory:", err)
 		return
 	}
-	dbPath := filepath.Join(appDataDir, "cdnmanager", "cdnmanager.sqlite3")
 
-	// Ensure the directory exists
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-		fmt.Println("Failed to create database directory:", err)
+	appDir := filepath.Join(appDataDir, "cdnmanager")
+	dbPath := filepath.Join(appDir, "cdnmanager.sqlite3")
+	configPath := filepath.Join(appDir, "config.json")
+
+	if err := os.MkdirAll(appDir, 0755); err != nil {
+		fmt.Println("Failed to create app directory:", err)
 		return
 	}
 
-	// Create a new database from the schema
-	cdnDB = initializeDatabase(dbPath, schema)
+	cdnDB := initializeDatabase(dbPath, schema)
 	if cdnDB == nil {
 		fmt.Println("Failed to initialize database")
 		return
 	}
 
-	cloudflareSession = session.NewCloudflareSession()
-	SyncFromCloudflare()
-
-	app := NewApp()
+	app := NewApp(cdnDB, configPath)
 
 	err = wails.Run(&options.App{
 		Title:         "Content Delivery Network Manager",
@@ -114,7 +77,6 @@ func main() {
 		Bind: []interface{}{
 			app,
 			cdnDB,
-			cloudflareSession,
 		},
 		CSSDragProperty: "--wails-draggable",
 		CSSDragValue:    "drag",

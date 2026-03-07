@@ -1,10 +1,23 @@
 import './styles/app.css';
 
+import { IsConfigured, SyncFromCloudflare } from '../wailsjs/go/main/App';
 import { GetEntryByName, GetEntryByValue, GetEntriesByValue, GetAllEntries, InsertKVEntryIntoDatabase, DeleteName } from '../wailsjs/go/database/Database';
-import { InsertKVEntry, DeleteKeyValue } from '../wailsjs/go/session/CloudflareSession';
+import { InsertKVEntry, DeleteKeyValue } from '../wailsjs/go/main/App';
 import { GenerateCSV, ShowAlert } from "../wailsjs/go/main/App";
 
 import Fuse from 'fuse.js';
+
+window.addEventListener("DOMContentLoaded", async () => {
+    try {
+        const configured = await IsConfigured();
+
+        if (configured) {
+            await SyncFromCloudflare();
+        }
+    } catch (err) {
+        ShowAlert(`Startup sync failed: ${err}`);
+    }
+});
 
 let fuse;
 

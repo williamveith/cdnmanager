@@ -5,38 +5,64 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 
 	"cdnmanager/pkg/models"
 
 	cloudflare "github.com/cloudflare/cloudflare-go"
 )
 
-type CloudflareSession struct {
-	api          *cloudflare.API
-	account_id   *cloudflare.ResourceContainer
-	namespace_id string
-	domain       string
+type Config struct {
+	CloudflareEmail  string
+	CloudflareAPIKey string
+	AccountID        string
+	NamespaceID      string
+	Domain           string
 }
 
-func NewCloudflareSession() *CloudflareSession {
-	api, _ := cloudflare.New(os.Getenv("cloudflare_api_key"), os.Getenv("cloudflare_email"))
+func (c Config) IsComplete() bool {
+	return c.CloudflareEmail != "" &&
+		c.CloudflareAPIKey != "" &&
+		c.AccountID != "" &&
+		c.NamespaceID != "" &&
+		c.Domain != ""
+}
 
-	cloudflareSession := &CloudflareSession{
-		api:          api,
-		account_id:   cloudflare.AccountIdentifier(os.Getenv("account_id")),
-		namespace_id: os.Getenv("namespace_id"),
-		domain:       os.Getenv("domain"),
+type CloudflareSession struct {
+	api         *cloudflare.API
+	accountID   *cloudflare.ResourceContainer
+	namespaceID string
+	domain      string
+}
+
+func NewCloudflareSession(cfg Config) (*CloudflareSession, error) {
+	if !cfg.IsComplete() {
+		return nil, fmt.Errorf("cloudflare session config is incomplete")
 	}
 
-	return cloudflareSession
+	api, err := cloudflare.New(cfg.CloudflareAPIKey, cfg.CloudflareEmail)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cloudflare api client: %w", err)
+	}
+
+	cloudflareSession := &CloudflareSession{
+		api:         api,
+		accountID:   cloudflare.AccountIdentifier(cfg.AccountID),
+		namespaceID: cfg.NamespaceID,
+		domain:      cfg.Domain,
+	}
+
+	return cloudflareSession, nil
 }
 
 func (cloudflareSession *CloudflareSession) GetValue(key string) string {
-	resp, _ := cloudflareSession.api.GetWorkersKV(context.Background(), cloudflareSession.account_id, cloudflare.GetWorkersKVParams{
-		NamespaceID: cloudflareSession.namespace_id,
-		Key:         key,
-	})
+	resp, _ := cloudflareSession.api.GetWorkersKV(
+		context.Background(),
+		cloudflareSession.accountID,
+		cloudflare.GetWorkersKVParams{
+			NamespaceID: cloudflareSession.namespaceID,
+			Key:         key,
+		},
+	)
 
 	return string(resp)
 }
@@ -51,9 +77,13 @@ func (cloudflareSession *CloudflareSession) GetAllValues() []string {
 }
 
 func (cloudflareSession *CloudflareSession) GetAllKeys() []cloudflare.StorageKey {
-	resp, _ := cloudflareSession.api.ListWorkersKVKeys(context.Background(), cloudflareSession.account_id, cloudflare.ListWorkersKVsParams{
-		NamespaceID: cloudflareSession.namespace_id,
-	})
+	resp, _ := cloudflareSession.api.ListWorkersKVKeys(
+		context.Background(),
+		cloudflareSession.accountID,
+		cloudflare.ListWorkersKVsParams{
+			NamespaceID: cloudflareSession.namespaceID,
+		},
+	)
 	return resp.Result
 }
 
@@ -109,10 +139,14 @@ func (cloudflareSession *CloudflareSession) Size() (int, []cloudflare.StorageKey
 
 func (cloudflareSession *CloudflareSession) WriteEntry(entry models.Entry) (resp cloudflare.Response) {
 	workersKVPairs := entryToWorkersKVPairs(entry)
-	resp, err := cloudflareSession.api.WriteWorkersKVEntries(context.Background(), cloudflareSession.account_id, cloudflare.WriteWorkersKVEntriesParams{
-		NamespaceID: cloudflareSession.namespace_id,
-		KVs:         workersKVPairs,
-	})
+	resp, err := cloudflareSession.api.WriteWorkersKVEntries(
+		context.Background(),
+		cloudflareSession.accountID,
+		cloudflare.WriteWorkersKVEntriesParams{
+			NamespaceID: cloudflareSession.namespaceID,
+			KVs:         workersKVPairs,
+		},
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -132,10 +166,14 @@ func (cloudflareSession *CloudflareSession) InsertKVEntry(name string, value str
 
 func (cloudflareSession *CloudflareSession) WriteEntries(entries []models.Entry) {
 	workersKVPairs := entriesToWorkersKVPairs(entries)
-	resp, err := cloudflareSession.api.WriteWorkersKVEntries(context.Background(), cloudflareSession.account_id, cloudflare.WriteWorkersKVEntriesParams{
-		NamespaceID: cloudflareSession.namespace_id,
-		KVs:         workersKVPairs,
-	})
+	resp, err := cloudflareSession.api.WriteWorkersKVEntries(
+		context.Background(),
+		cloudflareSession.accountID,
+		cloudflare.WriteWorkersKVEntriesParams{
+			NamespaceID: cloudflareSession.namespaceID,
+			KVs:         workersKVPairs,
+		},
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -144,10 +182,14 @@ func (cloudflareSession *CloudflareSession) WriteEntries(entries []models.Entry)
 }
 
 func (cloudflareSession *CloudflareSession) DeleteKeyValue(key string) {
-	resp, err := cloudflareSession.api.DeleteWorkersKVEntry(context.Background(), cloudflareSession.account_id, cloudflare.DeleteWorkersKVEntryParams{
-		NamespaceID: cloudflareSession.namespace_id,
-		Key:         key,
-	})
+	resp, err := cloudflareSession.api.DeleteWorkersKVEntry(
+		context.Background(),
+		cloudflareSession.accountID,
+		cloudflare.DeleteWorkersKVEntryParams{
+			NamespaceID: cloudflareSession.namespaceID,
+			Key:         key,
+		},
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -156,10 +198,14 @@ func (cloudflareSession *CloudflareSession) DeleteKeyValue(key string) {
 }
 
 func (cloudflareSession *CloudflareSession) DeleteKeyValues(keys []string) {
-	resp, err := cloudflareSession.api.DeleteWorkersKVEntries(context.Background(), cloudflareSession.account_id, cloudflare.DeleteWorkersKVEntriesParams{
-		NamespaceID: cloudflareSession.namespace_id,
-		Keys:        keys,
-	})
+	resp, err := cloudflareSession.api.DeleteWorkersKVEntries(
+		context.Background(),
+		cloudflareSession.accountID,
+		cloudflare.DeleteWorkersKVEntriesParams{
+			NamespaceID: cloudflareSession.namespaceID,
+			Keys:        keys,
+		},
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -176,7 +222,7 @@ func entriesToWorkersKVPairs(entries []models.Entry) []*cloudflare.WorkersKVPair
 	for _, entry := range entries {
 		var metadataMap map[string]interface{}
 		metadataJSON, _ := json.Marshal(entry.Metadata)
-		json.Unmarshal(metadataJSON, &metadataMap)
+		_ = json.Unmarshal(metadataJSON, &metadataMap)
 
 		kvPairs = append(kvPairs, &cloudflare.WorkersKVPair{
 			Key:      entry.Name,
