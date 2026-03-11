@@ -49,6 +49,10 @@ body {
     text-align: left;
 }
 
+#save-config-button {
+    width: auto;
+}
+
 th {
     border-bottom: var(--border-style);
     padding: var(--table-cell-padding);

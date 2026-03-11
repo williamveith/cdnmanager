@@ -58,7 +58,7 @@ function buildEntryLink(id) {
         // refresh domain asynchronously but don't block UI
         GetDomain().then(domain => {
             appDomain = normalizeDomain(domain);
-        }).catch(() => {});
+        }).catch(() => { });
         return `?id=${id}`;
     }
 
@@ -86,28 +86,67 @@ async function initializeApp() {
 
 function renderConfigForm() {
     appRoot.innerHTML = `
+    <form id="config-form">
         <div class="section" id="config-form-section">
             <div style="font-size:24px;font-weight:bold;margin-bottom:10px;">CDN Manager Setup</div>
             <div style="margin-bottom:16px;">Enter your Cloudflare configuration to initialize the application.</div>
 
             <div class="section">
-                <input class="input" id="config-cloudflare-email" type="text" spellcheck="false" placeholder="Cloudflare Email" style="width:500px;" />
+                <input class="input"
+                    id="config-cloudflare-email"
+                    type="email"
+                    required
+                    spellcheck="false"
+                    placeholder="Cloudflare Email"
+                    style="width:500px;" />
             </div>
 
             <div class="section">
-                <input class="input" id="config-cloudflare-api-key" type="password" spellcheck="false" placeholder="Cloudflare API Key" style="width:500px;" />
+                <input class="input"
+                    id="config-cloudflare-api-key"
+                    type="password"
+                    required
+                    pattern="[A-Za-z0-9_-]{30,50}"
+                    title="Cloudflare API Token must be 30–50 characters (letters, numbers, - or _)"
+                    spellcheck="false"
+                    placeholder="Cloudflare API Key"
+                    style="width:500px;" />
             </div>
 
             <div class="section">
-                <input class="input" id="config-account-id" type="text" spellcheck="false" placeholder="Account ID" style="width:500px;" />
+                <input class="input"
+                    id="config-account-id"
+                    type="text"
+                    required
+                    pattern="[a-f0-9]{32}"
+                    title="Account ID must be 32 lowercase hexadecimal characters"
+                    spellcheck="false"
+                    placeholder="Account ID"
+                    style="width:500px;" />
             </div>
 
             <div class="section">
-                <input class="input" id="config-namespace-id" type="text" spellcheck="false" placeholder="Namespace ID" style="width:500px;" />
+                <input class="input"
+                    id="config-namespace-id"
+                    type="text"
+                    required
+                    pattern="[a-f0-9]{32}"
+                    title="Namespace ID must be 32 lowercase hexadecimal characters"
+                    spellcheck="false"
+                    placeholder="Namespace ID"
+                    style="width:500px;" />
             </div>
 
             <div class="section">
-                <input class="input" id="config-domain" type="text" spellcheck="false" placeholder="Domain" style="width:500px;" />
+                <input class="input"
+                    id="config-domain"
+                    type="text"
+                    required
+                    pattern="(https?:\\/\\/)?([a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,}"
+                    title="Enter a valid domain such as cdn.example.com"
+                    spellcheck="false"
+                    placeholder="Domain"
+                    style="width:500px;" />
             </div>
 
             <div class="section" style="width:auto">
@@ -116,9 +155,13 @@ function renderConfigForm() {
 
             <div class="result section" id="config-status"></div>
         </div>
+    </form>
     `;
 
-    document.getElementById("save-config-button").addEventListener("click", submitConfigForm);
+    document.getElementById("config-form").addEventListener("submit", function (e) {
+        e.preventDefault();
+        submitConfigForm();
+    });
 }
 
 async function submitConfigForm() {
