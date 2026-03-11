@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
 
 	"cdnmanager/pkg/models"
 
@@ -111,24 +112,57 @@ func (cloudflareSession *CloudflareSession) GetAllEntries() []models.Entry {
 }
 
 func (cloudflareSession *CloudflareSession) GetAllEntriesFromKeys(storageKeys []cloudflare.StorageKey) []models.Entry {
-	var entries []models.Entry
-	for _, sk := range storageKeys {
-		var metadata models.Metadata
-
-		if sk.Metadata != nil {
-			metadataJSON, _ := json.Marshal(sk.Metadata)
-			metadata, _ = models.MetadataFromJSONString(string(metadataJSON))
-		} else {
-			metadata = models.Metadata{}
-		}
-
-		entry := models.Entry{
-			Name:     sk.Name,
-			Metadata: metadata,
-			Value:    cloudflareSession.GetValue(sk.Name),
-		}
-		entries = append(entries, entry)
+	if len(storageKeys) == 0 {
+		return []models.Entry{}
 	}
+
+	entries := make([]models.Entry, len(storageKeys))
+
+	const workerCount = 18
+	type job struct {
+		index int
+		key   cloudflare.StorageKey
+	}
+
+	jobs := make(chan job, len(storageKeys))
+	var wg sync.WaitGroup
+
+	worker := func() {
+		defer wg.Done()
+
+		for j := range jobs {
+			var metadata models.Metadata
+
+			if j.key.Metadata != nil {
+				metadataJSON, err := json.Marshal(j.key.Metadata)
+				if err == nil {
+					_ = json.Unmarshal(metadataJSON, &metadata)
+				}
+			}
+
+			entries[j.index] = models.Entry{
+				Name:     j.key.Name,
+				Metadata: metadata,
+				Value:    cloudflareSession.GetValue(j.key.Name),
+			}
+		}
+	}
+
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go worker()
+	}
+
+	for i, sk := range storageKeys {
+		jobs <- job{
+			index: i,
+			key:   sk,
+		}
+	}
+
+	close(jobs)
+	wg.Wait()
+
 	return entries
 }
 
