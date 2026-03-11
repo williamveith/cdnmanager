@@ -7,7 +7,8 @@ import {
     InsertKVEntry,
     DeleteKeyValue,
     GenerateCSV,
-    ShowAlert
+    ShowAlert,
+    GetDomain
 } from '../wailsjs/go/main/App';
 
 import {
@@ -22,6 +23,7 @@ import {
 import Fuse from 'fuse.js';
 
 let fuse;
+let appDomain = "";
 window.cachedEntries = [];
 
 const appRoot = document.querySelector('#app');
@@ -40,6 +42,29 @@ window.addEventListener("DOMContentLoaded", async () => {
     await initializeApp();
 });
 
+function normalizeDomain(domain) {
+    const trimmed = (domain ?? '').trim();
+    if (!trimmed) return '';
+
+    if (/^https?:\/\//i.test(trimmed)) {
+        return trimmed.replace(/\/+$/, '');
+    }
+
+    return `https://${trimmed.replace(/\/+$/, '')}`;
+}
+
+function buildEntryLink(id) {
+    if (!appDomain) {
+        // refresh domain asynchronously but don't block UI
+        GetDomain().then(domain => {
+            appDomain = normalizeDomain(domain);
+        }).catch(() => {});
+        return `?id=${id}`;
+    }
+
+    return `${appDomain}/?id=${id}`;
+}
+
 async function initializeApp() {
     try {
         const configured = await IsConfigured();
@@ -48,6 +73,8 @@ async function initializeApp() {
             renderConfigForm();
             return;
         }
+
+        appDomain = normalizeDomain(await GetDomain());
 
         await SyncFromCloudflare();
         renderMainApp();
@@ -117,6 +144,7 @@ async function submitConfigForm() {
     try {
         document.getElementById("config-status").innerHTML = "Saving configuration and syncing Cloudflare data...This could take up to 10 minutes depending on your KV size";
         await SetupAndSync(cfg);
+        appDomain = normalizeDomain(await GetDomain());
         renderMainApp();
         ShowAlert("Configuration saved and database synced.");
     } catch (err) {
@@ -631,7 +659,7 @@ function displayEntries(entries) {
             <tr>
                 <td>
                     <span class="copyonclick">${entry.Name}</span>
-                    <span class="copyonclick glyphicon glyphicon-link" data-copy="https://cdn.williamveith.com/?id=${entry.Name}"></span>
+                    <span class="copyonclick glyphicon glyphicon-link" data-copy="${buildEntryLink(entry.Name)}"></span>
                 </td>
                 <td class="copyonclick">${entry.Value}</td>
                 <td class="copyonclick">${entry.Metadata?.name ?? ''}</td>
@@ -756,7 +784,7 @@ function displayApproximateSearchSort(data) {
             <tr>
                 <td>
                     <span class="copyonclick">${entry.Name}</span>
-                    <span class="copyonclick glyphicon glyphicon-link" data-copy="https://cdn.williamveith.com/?id=${entry.Name}"></span>
+                    <span class="copyonclick glyphicon glyphicon-link" data-copy="${buildEntryLink(entry.Name)}"></span>
                 </td>
                 <td class="copyonclick">${entry.Value}</td>
                 <td class="copyonclick">${entry.Metadata?.name ?? ''}</td>

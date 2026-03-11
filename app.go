@@ -58,8 +58,12 @@ func (a *App) IsConfigured() bool {
 	return a.HasConfig()
 }
 
-func (a *App) GetConfig() (*config.Config, error) {
-	return config.LoadConfig(a.configPath)
+func (a *App) GetDomain() (string, error) {
+	cfg, err := config.LoadConfig(a.configPath)
+	if err != nil {
+		return "", err
+	}
+	return cfg.Domain, nil
 }
 
 func (a *App) SaveConfig(cfg config.Config) error {
