@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"cdnmanager/pkg/config"
 	"cdnmanager/pkg/database"
 
 	"github.com/wailsapp/wails/v2"
@@ -58,7 +59,7 @@ func initializeConfig(configPath string) error {
 
 	fmt.Println("Config not found. Creating a new one...")
 
-	return SaveConfig(configPath, Config{})
+	return config.SaveConfig(configPath, config.Config{})
 }
 
 func appPaths() (appDir string, dbPath string, configPath string, err error) {

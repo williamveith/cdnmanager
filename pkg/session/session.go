@@ -7,26 +7,11 @@ import (
 	"log"
 	"sync"
 
+	"cdnmanager/pkg/config"
 	"cdnmanager/pkg/models"
 
 	cloudflare "github.com/cloudflare/cloudflare-go"
 )
-
-type Config struct {
-	CloudflareEmail  string
-	CloudflareAPIKey string
-	AccountID        string
-	NamespaceID      string
-	Domain           string
-}
-
-func (c Config) IsComplete() bool {
-	return c.CloudflareEmail != "" &&
-		c.CloudflareAPIKey != "" &&
-		c.AccountID != "" &&
-		c.NamespaceID != "" &&
-		c.Domain != ""
-}
 
 type CloudflareSession struct {
 	api         *cloudflare.API
@@ -35,7 +20,7 @@ type CloudflareSession struct {
 	domain      string
 }
 
-func NewCloudflareSession(cfg Config) (*CloudflareSession, error) {
+func NewCloudflareSession(cfg config.Config) (*CloudflareSession, error) {
 	if !cfg.IsComplete() {
 		return nil, fmt.Errorf("cloudflare session config is incomplete")
 	}
@@ -45,14 +30,12 @@ func NewCloudflareSession(cfg Config) (*CloudflareSession, error) {
 		return nil, fmt.Errorf("failed to create cloudflare api client: %w", err)
 	}
 
-	cloudflareSession := &CloudflareSession{
+	return &CloudflareSession{
 		api:         api,
 		accountID:   cloudflare.AccountIdentifier(cfg.AccountID),
 		namespaceID: cfg.NamespaceID,
 		domain:      cfg.Domain,
-	}
-
-	return cloudflareSession, nil
+	}, nil
 }
 
 func (cloudflareSession *CloudflareSession) GetValue(key string) string {

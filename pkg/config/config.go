@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"encoding/json"
@@ -37,7 +37,7 @@ func LoadConfig(configPath string) (*Config, error) {
 }
 
 func SaveConfig(configPath string, cfg Config) error {
-	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
 		return err
 	}
 
@@ -46,5 +46,5 @@ func SaveConfig(configPath string, cfg Config) error {
 		return err
 	}
 
-	return os.WriteFile(configPath, data, 0600)
+	return os.WriteFile(configPath, data, 0o600)
 }

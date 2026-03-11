@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"cdnmanager/pkg/config"
 	"cdnmanager/pkg/database"
 	"cdnmanager/pkg/session"
 
@@ -46,7 +47,7 @@ func (a *App) ShowAlert(message string) {
 // -----------------------------------------------------------------------------
 
 func (a *App) HasConfig() bool {
-	cfg, err := LoadConfig(a.configPath)
+	cfg, err := config.LoadConfig(a.configPath)
 	if err != nil {
 		return false
 	}
@@ -57,12 +58,12 @@ func (a *App) IsConfigured() bool {
 	return a.HasConfig()
 }
 
-func (a *App) GetConfig() (*Config, error) {
-	return LoadConfig(a.configPath)
+func (a *App) GetConfig() (*config.Config, error) {
+	return config.LoadConfig(a.configPath)
 }
 
-func (a *App) SaveConfig(cfg Config) error {
-	return SaveConfig(a.configPath, cfg)
+func (a *App) SaveConfig(cfg config.Config) error {
+	return config.SaveConfig(a.configPath, cfg)
 }
 
 // -----------------------------------------------------------------------------
@@ -70,7 +71,7 @@ func (a *App) SaveConfig(cfg Config) error {
 // -----------------------------------------------------------------------------
 
 func (a *App) InitializeSession() error {
-	cfg, err := LoadConfig(a.configPath)
+	cfg, err := config.LoadConfig(a.configPath)
 	if err != nil {
 		return err
 	}
@@ -78,13 +79,7 @@ func (a *App) InitializeSession() error {
 		return fmt.Errorf("config is incomplete")
 	}
 
-	sess, err := session.NewCloudflareSession(session.Config{
-		CloudflareEmail:  cfg.CloudflareEmail,
-		CloudflareAPIKey: cfg.CloudflareAPIKey,
-		AccountID:        cfg.AccountID,
-		NamespaceID:      cfg.NamespaceID,
-		Domain:           cfg.Domain,
-	})
+	sess, err := session.NewCloudflareSession(*cfg)
 	if err != nil {
 		return err
 	}
@@ -125,7 +120,7 @@ func (a *App) SyncFromCloudflare() error {
 	return nil
 }
 
-func (a *App) SetupAndSync(cfg Config) error {
+func (a *App) SetupAndSync(cfg config.Config) error {
 	if !cfg.IsComplete() {
 		return fmt.Errorf("config is incomplete")
 	}
