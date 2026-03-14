@@ -12,7 +12,7 @@ The application is built with:
 - **Vanilla JavaScript**
 - **Fuse.js** for approximate table search
 
-macOS releases are packaged as a desktop app and distributed as a **Developer ID signed** and **Apple notarized** download.
+macOS releases are packaged as a **universal DMG** containing a universal app bundle for both **Apple Silicon (`arm64`)** and **Intel (`x86_64`)** Macs. Release builds are **Developer ID signed** and **Apple notarized**.
 
 ---
 
@@ -58,9 +58,21 @@ Each KV record can include structured metadata:
 - Cross-platform window configuration for macOS, Windows, and Linux
 
 ### macOS distribution
+- Universal macOS app bundle (`arm64` + `x86_64`)
+- Universal DMG installer
 - Developer ID signed
 - Apple notarized
-- Distributed as a DMG installer
+- Gatekeeper-compatible distribution
+
+### Developer release pipeline
+- Signed Git commits
+- Signed Git tags
+- Tagged GitHub releases
+- Universal macOS build generation
+- App signing
+- DMG packaging
+- Apple notarization
+- Stapling and validation before release upload
 
 ---
 
@@ -364,7 +376,7 @@ If the domain has not yet been loaded, the frontend temporarily falls back to:
 
 ### macOS release requirements
 
-For signed and notarized macOS builds:
+For universal, signed, and notarized macOS builds:
 
 * Apple Developer account
 * Developer ID Application certificate
@@ -406,17 +418,32 @@ make build
 
 The project includes a `Makefile` for building and packaging release artifacts.
 
-Release pipeline steps:
+### Release pipeline
 
 1. clean old build artifacts
 2. run environment checks
-3. build the Wails app
-4. sign the app bundle
+3. build the Wails app as a **universal macOS binary**
+4. sign the `.app` bundle with a Developer ID certificate
 5. stage DMG contents
-6. create the DMG
-7. notarize the DMG with Apple
+6. create the universal DMG
+7. submit the DMG to Apple notarization
 8. staple the notarization ticket
-9. verify the notarized release artifact
+9. validate the final release artifact
+10. upload the DMG to a tagged GitHub release
+
+### Developer pipeline
+
+The release workflow also includes source-level provenance:
+
+* release changes are committed with a signed Git commit
+* release versions are marked with a signed Git tag
+* `main` is advanced to the tagged release commit
+* the final DMG is attached to the GitHub release for that signed tag
+
+This gives the release pipeline both:
+
+* **source provenance** through signed commits and tags
+* **distribution trust** through Developer ID signing and Apple notarization
 
 ### Common commands
 
@@ -455,7 +482,7 @@ make clean
 Current release:
 
 ```text
-v2.1.0
+v2.1.1
 ```
 
 This version includes:
@@ -464,7 +491,9 @@ This version includes:
 * dynamic domain-based link generation
 * improved setup form validation
 * concurrent KV entry loading
-* signed and notarized macOS release packaging
+* universal macOS build support
+* signed and notarized universal DMG release packaging
+* signed commit/tag release workflow
 
 ---
 

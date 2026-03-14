@@ -6,7 +6,7 @@ BUILD_DIR := build
 BIN_DIR := $(BUILD_DIR)/bin
 
 # Human-facing release version used in the DMG filename.
-VERSION := 2.1.0
+VERSION := 2.1.1
 
 # macOS disk image volume name shown when the DMG is mounted.
 VOL_NAME := CDN Manager
@@ -89,9 +89,8 @@ check-wails:
 build: check
 	@$(MAKE) start-section
 	@echo "$(HEADER)Building Wails application...\n$(RESET)"
-	@if [ "$(UNAME_S)" = "Darwin" ] && [ "$(UNAME_M)" = "arm64" ]; then \
-		echo "Skipping UPX compression for macOS arm64"; \
-		wails build -clean $(WAILS_BUILD_FLAGS) -o $(BINARY_NAME); \
+	@if [ "$(UNAME_S)" = "Darwin" ]; then \
+		wails build -platform darwin/universal -clean $(WAILS_BUILD_FLAGS) -o $(BINARY_NAME); \
 	else \
 		wails build -clean $(WAILS_BUILD_FLAGS) -upx -upxflags "--lzma" -o $(BINARY_NAME); \
 	fi
