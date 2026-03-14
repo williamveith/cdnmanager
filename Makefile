@@ -54,7 +54,7 @@ YELLOW := \033[1;33m
 HEADER := \033[1;34m
 
 # Mark targets as phony so make does not confuse them with files of the same name.
-.PHONY: all check check-wails build sign-app verify-sign stage-dmg dmg notarize-dmg staple-dmg verify-notarization release test run clean start-section
+.PHONY: all check check-wails build sign-app verify-sign stage-dmg dmg sign-dmg notarize-dmg staple-dmg verify-notarization release test run clean start-section
 
 # Default target: build the application.
 all: build
@@ -65,10 +65,11 @@ all: build
 # 3. sign the .app bundle
 # 4. stage DMG contents
 # 5. create the DMG
-# 6. submit the DMG to Apple notarization
-# 7. staple the notarization ticket
-# 8. verify the final notarized installer
-release: clean build sign-app stage-dmg dmg notarize-dmg staple-dmg verify-notarization
+# 6. sign the DMG
+# 7. submit the DMG to Apple notarization
+# 8. staple the notarization ticket
+# 9. verify the final notarized installer
+release: clean build sign-app stage-dmg dmg sign-dmg notarize-dmg staple-dmg verify-notarization
 
 # Print a section divider sized to the current terminal width.
 start-section:
@@ -146,9 +147,17 @@ dmg: stage-dmg
 	@echo "$(GREEN)DMG Created$(RESET) | $(shell pwd)/$(DMG_PATH)"
 	@open "$(shell pwd)/$(BIN_DIR)"
 
-# Upload the DMG to Apple's notarization service and wait for a result.
-# The credentials are pulled from the named keychain profile created earlier.
-notarize-dmg: dmg
+# Sign the DMG itself so Gatekeeper can validate the container signature.
+sign-dmg: dmg
+	@$(MAKE) start-section
+	@echo "$(HEADER)Signing DMG...\n$(RESET)"
+	@codesign --force \
+		--sign "$(APPLE_SIGN_IDENTITY)" \
+		"$(DMG_PATH)"
+	@echo "$(GREEN)DMG Signed$(RESET) | $(shell pwd)/$(DMG_PATH)"
+
+# Upload the signed DMG to Apple's notarization service and wait for a result.
+notarize-dmg: sign-dmg
 	@$(MAKE) start-section
 	@echo "$(HEADER)Submitting DMG for notarization...\n$(RESET)"
 	@xcrun notarytool submit "$(DMG_PATH)" \
@@ -157,7 +166,6 @@ notarize-dmg: dmg
 	@echo "$(GREEN)Notarization Submitted/Accepted$(RESET) | $(shell pwd)/$(DMG_PATH)"
 
 # Attach the notarization ticket directly to the DMG.
-# This allows Gatekeeper to validate the DMG offline without re-querying Apple.
 staple-dmg: notarize-dmg
 	@$(MAKE) start-section
 	@echo "$(HEADER)Stapling notarization ticket...\n$(RESET)"
@@ -169,7 +177,7 @@ verify-notarization: staple-dmg
 	@$(MAKE) start-section
 	@echo "$(HEADER)Verifying notarized DMG...\n$(RESET)"
 	@xcrun stapler validate "$(DMG_PATH)"
-	@spctl -a -vv "$(DMG_PATH)"
+	@spctl -a -t open -vvv --context context:primary-signature "$(DMG_PATH)"
 	@echo "$(GREEN)Notarization Verified$(RESET) | $(shell pwd)/$(DMG_PATH)"
 	@open "$(shell pwd)/$(BIN_DIR)"
 
