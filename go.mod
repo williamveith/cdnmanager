@@ -4,7 +4,7 @@ go 1.24
 
 require (
 	github.com/cloudflare/cloudflare-go v0.116.0
-	github.com/mattn/go-sqlite3 v1.14.24
+	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/wailsapp/wails/v2 v2.11.0
 )
 
