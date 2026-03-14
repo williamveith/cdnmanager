@@ -21,6 +21,7 @@ import {
 } from '../wailsjs/go/database/Database';
 
 import Fuse from 'fuse.js';
+import Papa from "papaparse";
 
 let fuse;
 let appDomain = "";
@@ -565,69 +566,98 @@ window.readFileContent = function (input) {
 };
 
 window.insertEntryFromFile = async function () {
-    const content = window.insertFromFileContent || await window.readFileContent(document.getElementById("insertFile"));
-    if (!content) return;
+    const content =
+        window.insertFromFileContent ||
+        await window.readFileContent(document.getElementById("insertFile"));
 
-    const lines = content.trim().split('\n');
-    if (lines.length < 2) return;
+    if (!content || !content.trim()) return;
 
-    const headers = lines[0].split(',').map(header => header.trim().replace(/\r/g, ''));
+    const parsed = Papa.parse(content, {
+        header: true,
+        skipEmptyLines: "greedy",
+        transformHeader: (header) => header.trim().replace(/\r/g, ""),
+        transform: (value) => value.trim().replace(/\r/g, "")
+    });
 
-    for (let i = 1; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line.trim()) continue;
+    if (parsed.errors?.length) {
+        const firstError = parsed.errors[0];
+        ShowAlert(`CSV parse error on row ${firstError.row ?? "unknown"}: ${firstError.message}`);
+        return;
+    }
 
-        const values = line.split(',');
-        const rowData = {};
+    const rows = parsed.data || [];
+    const errors = [];
+    let insertedCount = 0;
 
-        for (let j = 0; j < headers.length; j++) {
-            rowData[headers[j]] = values[j] ? values[j].trim().replace(/\r/g, '') : '';
+    for (let index = 0; index < rows.length; index++) {
+        const rowNumber = index + 2;
+        const rowData = rows[index];
+
+        const name = rowData.name || "";
+        const value = rowData.value || "";
+
+        if (!name || !value) {
+            errors.push(`Row ${rowNumber}: missing name or value.`);
+            continue;
         }
 
         const metadata = {};
 
-        for (const key in rowData) {
-            if (key.startsWith('metadata_')) {
-                const metaKey = key.replace('metadata_', '');
-                let value = rowData[key];
+        for (const [key, rawValue] of Object.entries(rowData)) {
+            if (!key.startsWith("metadata_")) continue;
+            if (rawValue === "") continue;
 
-                if (value !== '') {
-                    if (metaKey === 'external') {
-                        value = (value === 'true');
-                    }
-                    metadata[metaKey] = value;
+            const metaKey = key.slice("metadata_".length);
+            let parsedValue = rawValue;
+
+            if (metaKey === "external") {
+                const normalized = String(rawValue).toLowerCase();
+                if (normalized === "true") parsedValue = true;
+                else if (normalized === "false") parsedValue = false;
+                else {
+                    errors.push(`Row ${rowNumber}: metadata_external must be true or false.`);
+                    parsedValue = undefined;
                 }
+            }
+
+            if (parsedValue !== undefined) {
+                metadata[metaKey] = parsedValue;
             }
         }
 
-        const name = rowData['name'] ? rowData['name'].trim() : '';
-        const value = rowData['value'] ? rowData['value'].trim() : '';
-
-        if (!name || !value) {
-            ShowAlert("Please provide both Name and Value.");
-            return;
-        }
-
-        if (metadata['external'] === undefined) {
-            ShowAlert("Please select whether the resource is external.");
-            return;
+        if (metadata.external === undefined) {
+            errors.push(`Row ${rowNumber}: metadata_external is required.`);
+            continue;
         }
 
         try {
             const metadataString = JSON.stringify(metadata);
             const response = await InsertKVEntry(name, value, metadataString);
 
-            if (response && response.success) {
+            if (!response || response.success === undefined || response.success) {
                 await InsertKVEntryIntoDatabase(name, value, metadataString);
-                ShowAlert(`Successfully inserted ${metadata["name"]}`);
-                clearInsertFromFile();
+                insertedCount++;
             } else {
-                ShowAlert('Failed to insert entry: ' + response.errors.join(', '));
+                const errorText = Array.isArray(response.errors)
+                    ? response.errors.join(", ")
+                    : "Unknown error";
+                errors.push(`Row ${rowNumber}: failed to insert "${name}" - ${errorText}`);
             }
         } catch (error) {
-            ShowAlert(`An error occurred while inserting the entry. ${error}`);
+            errors.push(`Row ${rowNumber}: exception while inserting "${name}" - ${error}`);
         }
     }
+
+    clearInsertFromFile();
+
+    if (errors.length > 0) {
+        ShowAlert(
+            `Inserted ${insertedCount} entr${insertedCount === 1 ? "y" : "ies"}.\n\nErrors:\n${errors.join("\n")}`
+        );
+        return;
+    }
+
+    ShowAlert(`Successfully inserted ${insertedCount} entr${insertedCount === 1 ? "y" : "ies"}.`);
 };
 
 function updateResults(content = '') {
