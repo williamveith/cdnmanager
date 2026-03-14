@@ -477,26 +477,6 @@ make clean
 
 ---
 
-## Version
-
-Current release:
-
-```text
-v2.1.1
-```
-
-This version includes:
-
-* config package refactor
-* dynamic domain-based link generation
-* improved setup form validation
-* concurrent KV entry loading
-* universal macOS build support
-* signed and notarized universal DMG release packaging
-* signed commit/tag release workflow
-
----
-
 ## Author
 
 **William Veith**
