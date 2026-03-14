@@ -3,7 +3,7 @@ module cdnmanager
 go 1.24
 
 require (
-	github.com/cloudflare/cloudflare-go v0.110.0
+	github.com/cloudflare/cloudflare-go v0.116.0
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/wailsapp/wails/v2 v2.11.0
 )
@@ -11,7 +11,7 @@ require (
 require (
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
-	github.com/goccy/go-json v0.10.3 // indirect
+	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -38,7 +38,7 @@ require (
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
-	golang.org/x/time v0.8.0 // indirect
+	golang.org/x/time v0.9.0 // indirect
 )
 
 // replace github.com/wailsapp/wails/v2 v2.9.2 => /Users/main/go/pkg/mod
