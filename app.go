@@ -108,14 +108,14 @@ func (a *App) SyncFromCloudflare() error {
 		return err
 	}
 
-	cloudflareSize, storageKeys := a.cloudflareSession.Size()
+	cloudflareSize, _ := a.cloudflareSession.Size()
 	if a.db.Size() == cloudflareSize {
 		fmt.Println("Existing Database Up To Date")
 		return nil
 	}
 
 	fmt.Println("Initializing Table With Cloudflare Values...")
-	entries := a.cloudflareSession.GetAllEntriesFromKeys(storageKeys)
+	entries := a.cloudflareSession.GetAllEntriesBulk()
 	a.db.DropTable()
 	a.db.CreateTable()
 	a.db.InsertEntries(entries)

@@ -7,8 +7,6 @@ import (
 )
 
 type Config struct {
-	CloudflareEmail    string `json:"cloudflare_email"`
-	CloudflareAPIKey   string `json:"cloudflare_api_key"`
 	CloudflareAPIToken string `json:"cloudflare_api_token"`
 	AccountID          string `json:"account_id"`
 	NamespaceID        string `json:"namespace_id"`

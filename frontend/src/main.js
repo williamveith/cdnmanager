@@ -94,23 +94,13 @@ function renderConfigForm() {
 
             <div class="section">
                 <input class="input"
-                    id="config-cloudflare-email"
-                    type="email"
-                    required
-                    spellcheck="false"
-                    placeholder="Cloudflare Email"
-                    style="width:500px;" />
-            </div>
-
-            <div class="section">
-                <input class="input"
-                    id="config-cloudflare-api-key"
+                    id="config-cloudflare-api-token"
                     type="password"
                     required
-                    pattern="[A-Za-z0-9_-]{30,50}"
-                    title="Cloudflare API Token must be 30–50 characters (letters, numbers, - or _)"
+                    pattern="[A-Za-z0-9_-]{30,}"
+                    title="Cloudflare API Token must contain only letters, numbers, underscores, or hyphens"
                     spellcheck="false"
-                    placeholder="Cloudflare API Key"
+                    placeholder="Cloudflare API Token"
                     style="width:500px;" />
             </div>
 
@@ -151,7 +141,7 @@ function renderConfigForm() {
             </div>
 
             <div class="section" style="width:auto">
-                <button class="btn" id="save-config-button">Save & Sync</button>
+                <button class="btn" id="save-config-button" type="submit">Save & Sync</button>
             </div>
 
             <div class="result section" id="config-status"></div>
@@ -167,16 +157,14 @@ function renderConfigForm() {
 
 async function submitConfigForm() {
     const cfg = {
-        cloudflare_email: document.getElementById("config-cloudflare-email").value.trim(),
-        cloudflare_api_key: document.getElementById("config-cloudflare-api-key").value.trim(),
+        cloudflare_api_token: document.getElementById("config-cloudflare-api-token").value.trim(),
         account_id: document.getElementById("config-account-id").value.trim(),
         namespace_id: document.getElementById("config-namespace-id").value.trim(),
         domain: document.getElementById("config-domain").value.trim()
     };
 
     if (
-        !cfg.cloudflare_email ||
-        !cfg.cloudflare_api_key ||
+        !cfg.cloudflare_api_token ||
         !cfg.account_id ||
         !cfg.namespace_id ||
         !cfg.domain
@@ -186,7 +174,7 @@ async function submitConfigForm() {
     }
 
     try {
-        document.getElementById("config-status").innerHTML = "Saving configuration and syncing Cloudflare data...This could take up to 10 minutes depending on your KV size";
+        document.getElementById("config-status").innerHTML = "Saving configuration and syncing Cloudflare data...";
         await SetupAndSync(cfg);
         appDomain = normalizeDomain(await GetDomain());
         renderMainApp();
