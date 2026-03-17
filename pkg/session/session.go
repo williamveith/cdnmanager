@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"sync"
 
 	"cdnmanager/pkg/config"
 	"cdnmanager/pkg/models"
@@ -52,39 +50,6 @@ func NewCloudflareSession(cfg config.Config) (*CloudflareSession, error) {
 	}, nil
 }
 
-func (s *CloudflareSession) GetValue(key string) string {
-	resp, err := s.client.KV.Namespaces.Values.Get(
-		context.Background(),
-		s.namespaceID,
-		key,
-		kv.NamespaceValueGetParams{
-			AccountID: cloudflare.F(s.accountID),
-		},
-	)
-	if err != nil {
-		log.Printf("failed to get KV value for key %q: %v", key, err)
-		return ""
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Printf("failed to read KV response body for key %q: %v", key, err)
-		return ""
-	}
-
-	return string(body)
-}
-
-func (s *CloudflareSession) GetAllValues() []string {
-	storageKeys := s.GetAllKeys()
-	values := make([]string, 0, len(storageKeys))
-	for _, entry := range storageKeys {
-		values = append(values, s.GetValue(entry.Name))
-	}
-	return values
-}
-
 func (s *CloudflareSession) GetAllKeys() []kv.Key {
 	pager := s.client.KV.Namespaces.Keys.ListAutoPaging(
 		context.Background(),
@@ -105,58 +70,6 @@ func (s *CloudflareSession) GetAllKeys() []kv.Key {
 	}
 
 	return keys
-}
-
-func (s *CloudflareSession) GetAllEntries() []models.Entry {
-	storageKeys := s.GetAllKeys()
-	return s.GetAllEntriesFromKeys(storageKeys)
-}
-
-func (s *CloudflareSession) GetAllEntriesFromKeys(storageKeys []kv.Key) []models.Entry {
-	if len(storageKeys) == 0 {
-		return []models.Entry{}
-	}
-
-	entries := make([]models.Entry, len(storageKeys))
-
-	type job struct {
-		index int
-		key   kv.Key
-	}
-
-	jobs := make(chan job, len(storageKeys))
-	var wg sync.WaitGroup
-
-	worker := func() {
-		defer wg.Done()
-
-		for j := range jobs {
-			metadata := metadataFromAny(j.key.Metadata)
-
-			entries[j.index] = models.Entry{
-				Name:     j.key.Name,
-				Metadata: metadata,
-				Value:    s.GetValue(j.key.Name),
-			}
-		}
-	}
-
-	for i := 0; i < workerCount; i++ {
-		wg.Add(1)
-		go worker()
-	}
-
-	for i, sk := range storageKeys {
-		jobs <- job{
-			index: i,
-			key:   sk,
-		}
-	}
-
-	close(jobs)
-	wg.Wait()
-
-	return entries
 }
 
 func (s *CloudflareSession) GetAllEntriesBulk() []models.Entry {
