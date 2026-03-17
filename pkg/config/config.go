@@ -7,16 +7,16 @@ import (
 )
 
 type Config struct {
-	CloudflareEmail  string `json:"cloudflare_email"`
-	CloudflareAPIKey string `json:"cloudflare_api_key"`
-	AccountID        string `json:"account_id"`
-	NamespaceID      string `json:"namespace_id"`
-	Domain           string `json:"domain"`
+	CloudflareEmail    string `json:"cloudflare_email"`
+	CloudflareAPIKey   string `json:"cloudflare_api_key"`
+	CloudflareAPIToken string `json:"cloudflare_api_token"`
+	AccountID          string `json:"account_id"`
+	NamespaceID        string `json:"namespace_id"`
+	Domain             string `json:"domain"`
 }
 
 func (c Config) IsComplete() bool {
-	return c.CloudflareEmail != "" &&
-		c.CloudflareAPIKey != "" &&
+	return c.CloudflareAPIToken != "" &&
 		c.AccountID != "" &&
 		c.NamespaceID != "" &&
 		c.Domain != ""
