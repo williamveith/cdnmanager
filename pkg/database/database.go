@@ -37,7 +37,6 @@ func NewDatabaseFromSchema(dbName string, schema []byte) *Database {
 		log.Fatalf("Failed to open SQLite database: %v", err)
 	}
 
-	// Execute the schema
 	_, err = db.Exec(string(schema))
 	if err != nil {
 		log.Fatalf("Failed to initialize database schema: %v", err)

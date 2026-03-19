@@ -15,7 +15,6 @@ import (
 )
 
 const bulkGetChunkSize = 100
-const workerCount = 18
 
 type CloudflareSession struct {
 	client      *cloudflare.Client
