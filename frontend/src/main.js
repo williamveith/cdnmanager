@@ -4,11 +4,11 @@ import {
     IsConfigured,
     SetupAndSync,
     SyncFromCloudflare,
-    InsertKVEntry,
     DeleteKeyValue,
     GenerateCSV,
     ShowAlert,
-    GetDomain
+    GetDomain,
+    Insert
 } from '../wailsjs/go/main/App';
 
 import {
@@ -16,7 +16,6 @@ import {
     GetEntryByValue,
     GetEntriesByValue,
     GetAllEntries,
-    InsertKVEntryIntoDatabase,
     DeleteName
 } from '../wailsjs/go/database/Database';
 
@@ -506,15 +505,9 @@ window.insertEntry = async function () {
 
     try {
         const metadataString = JSON.stringify(metadata);
-        const response = await InsertKVEntry(name, value, metadataString);
-
-        if (response && response.success) {
-            await InsertKVEntryIntoDatabase(name, value, metadataString);
-            updateInsertEntry("");
-            ShowAlert(`Successfully inserted ${metadata["name"]}`);
-        } else {
-            ShowAlert('Failed to insert entry: ' + response.errors.join(', '));
-        }
+        await Insert(name, value, metadataString);
+        updateInsertEntry("");
+        ShowAlert(`Successfully inserted ${metadata["name"]}`);
     } catch (error) {
         ShowAlert(`An error occurred while inserting the entry. ${error}`);
     }
@@ -620,17 +613,8 @@ window.insertEntryFromFile = async function () {
 
         try {
             const metadataString = JSON.stringify(metadata);
-            const response = await InsertKVEntry(name, value, metadataString);
-
-            if (!response || response.success === undefined || response.success) {
-                await InsertKVEntryIntoDatabase(name, value, metadataString);
-                insertedCount++;
-            } else {
-                const errorText = Array.isArray(response.errors)
-                    ? response.errors.join(", ")
-                    : "Unknown error";
-                errors.push(`Row ${rowNumber}: failed to insert "${name}" - ${errorText}`);
-            }
+            await Insert(name, value, metadataString);
+            insertedCount++;
         } catch (error) {
             errors.push(`Row ${rowNumber}: exception while inserting "${name}" - ${error}`);
         }

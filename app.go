@@ -6,9 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"cdnmanager/pkg/config"
 	"cdnmanager/pkg/database"
+	"cdnmanager/pkg/models"
 	"cdnmanager/pkg/session"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -146,12 +148,29 @@ func (a *App) SetupAndSync(cfg config.Config) error {
 // Cloudflare KV actions
 // -----------------------------------------------------------------------------
 
-func (a *App) InsertKVEntry(name string, value string, metadata string) error {
+func (a *App) Insert(name string, value string, metadata string) error {
 	if err := a.ensureSession(); err != nil {
 		return err
 	}
 
-	a.cloudflareSession.InsertKVEntry(name, value, metadata)
+	meta, err := models.MetadataFromJSONString(metadata)
+	if err != nil {
+		return err
+	}
+
+	newEntry := models.Entry{
+		Name:     name,
+		Metadata: meta,
+		Value:    value,
+	}
+
+	newEntry.Metadata.Modified = time.Now().Unix()
+
+	if err := a.cloudflareSession.WriteEntry(newEntry); err != nil {
+		return err
+	}
+	a.db.InsertEntry(newEntry)
+
 	return nil
 }
 

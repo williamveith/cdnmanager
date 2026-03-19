@@ -162,14 +162,18 @@ func (cdb *Database) InsertEntry(datavalues models.Entry) {
 	}
 }
 
-func (cdb *Database) InsertKVEntryIntoDatabase(name string, value string, metadata string) {
-	Metadata, _ := models.MetadataFromJSONString(metadata)
+func (cdb *Database) InsertKVEntryIntoDatabase(name string, value string, metadata string) error {
+	Metadata, err := models.MetadataFromJSONString(metadata)
+	if err != nil {
+		return err
+	}
 	newEntry := models.Entry{
 		Name:     name,
 		Metadata: Metadata,
 		Value:    value,
 	}
 	cdb.InsertEntry(newEntry)
+	return nil
 }
 
 func (cdb *Database) InsertEntries(datavalues []models.Entry) {

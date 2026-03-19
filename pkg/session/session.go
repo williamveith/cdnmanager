@@ -123,23 +123,27 @@ func (s *CloudflareSession) Size() (int, []kv.Key) {
 	return len(entries), entries
 }
 
-func (s *CloudflareSession) WriteEntry(entry models.Entry) {
-	s.WriteEntries([]models.Entry{entry})
-}
-
-func (s *CloudflareSession) InsertKVEntry(name string, value string, metadata string) {
-	meta, _ := models.MetadataFromJSONString(metadata)
+func (s *CloudflareSession) InsertKVEntry(name string, value string, metadata string) error {
+	meta, err := models.MetadataFromJSONString(metadata)
+	if err != nil {
+		return err
+	}
 	newEntry := models.Entry{
 		Name:     name,
 		Metadata: meta,
 		Value:    value,
 	}
 	s.WriteEntry(newEntry)
+	return nil
 }
 
-func (s *CloudflareSession) WriteEntries(entries []models.Entry) {
+func (s *CloudflareSession) WriteEntry(entry models.Entry) error {
+	return s.WriteEntries([]models.Entry{entry})
+}
+
+func (s *CloudflareSession) WriteEntries(entries []models.Entry) error {
 	if len(entries) == 0 {
-		return
+		return nil
 	}
 
 	kvs := entriesToBulkUpdateBodies(entries)
@@ -153,8 +157,10 @@ func (s *CloudflareSession) WriteEntries(entries []models.Entry) {
 		},
 	)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+
+	return nil
 }
 
 func (s *CloudflareSession) DeleteKeyValue(key string) {

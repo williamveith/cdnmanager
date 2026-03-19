@@ -18,6 +18,8 @@ type Metadata struct {
 	CloudStorageID string `json:"cloud_storage_id,omitempty"`
 	MD5Checksum    string `json:"md5Checksum,omitempty"`
 	Description    string `json:"description,omitempty"`
+
+	Modified int64 `json:"modified,omitempty"`
 }
 
 // Serialization methods for Metadata
