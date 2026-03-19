@@ -4,19 +4,18 @@ import {
     IsConfigured,
     SetupAndSync,
     SyncFromCloudflare,
-    DeleteKeyValue,
     GenerateCSV,
     ShowAlert,
     GetDomain,
-    Insert
+    Insert,
+    Delete
 } from '../wailsjs/go/main/App';
 
 import {
     GetEntryByName,
     GetEntryByValue,
     GetEntriesByValue,
-    GetAllEntries,
-    DeleteName
+    GetAllEntries
 } from '../wailsjs/go/database/Database';
 
 import Fuse from 'fuse.js';
@@ -436,9 +435,7 @@ window.deleteEntry = async function (event) {
             clearDeleteField();
             return;
         }
-
-        await DeleteKeyValue(uuid);
-        await DeleteName(uuid);
+        await Delete(uuid)
         clearDeleteField();
     } catch (err) {
         ShowAlert(`Error deleting record. ${err}`);

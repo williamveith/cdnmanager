@@ -111,7 +111,7 @@ func (cdb *Database) GetEntriesByValue(value string) []models.Entry {
 		entries = append(entries, models.Entry{
 			Name:     name,
 			Metadata: metadata,
-			Value:    value,
+			Value:    valueStr,
 		})
 	}
 	return entries
@@ -162,20 +162,6 @@ func (cdb *Database) InsertEntry(datavalues models.Entry) {
 	}
 }
 
-func (cdb *Database) InsertKVEntryIntoDatabase(name string, value string, metadata string) error {
-	Metadata, err := models.MetadataFromJSONString(metadata)
-	if err != nil {
-		return err
-	}
-	newEntry := models.Entry{
-		Name:     name,
-		Metadata: Metadata,
-		Value:    value,
-	}
-	cdb.InsertEntry(newEntry)
-	return nil
-}
-
 func (cdb *Database) InsertEntries(datavalues []models.Entry) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
@@ -203,10 +189,14 @@ func (cdb *Database) InsertEntries(datavalues []models.Entry) {
 	}
 }
 
-func (cdb *Database) DeleteName(key string) {
+func (cdb *Database) DeleteName(key string) error {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
-	_, _ = cdb.db.Exec(`DELETE FROM records WHERE name = ?`, key)
+	_, err := cdb.db.Exec(`DELETE FROM records WHERE name = ?`, key)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (cdb *Database) DeleteNames(names []string) {

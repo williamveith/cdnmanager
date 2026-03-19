@@ -145,7 +145,7 @@ func (a *App) SetupAndSync(cfg config.Config) error {
 }
 
 // -----------------------------------------------------------------------------
-// Cloudflare KV actions
+// data operation primitives
 // -----------------------------------------------------------------------------
 
 func (a *App) Insert(name string, value string, metadata string) error {
@@ -174,12 +174,16 @@ func (a *App) Insert(name string, value string, metadata string) error {
 	return nil
 }
 
-func (a *App) DeleteKeyValue(key string) error {
+func (a *App) Delete(key string) error {
 	if err := a.ensureSession(); err != nil {
 		return err
 	}
-
-	a.cloudflareSession.DeleteKeyValue(key)
+	if err := a.cloudflareSession.DeleteKeyValue(key); err != nil {
+		return err
+	}
+	if err := a.db.DeleteName(key); err != nil {
+		return err
+	}
 	return nil
 }
 

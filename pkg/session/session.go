@@ -123,20 +123,6 @@ func (s *CloudflareSession) Size() (int, []kv.Key) {
 	return len(entries), entries
 }
 
-func (s *CloudflareSession) InsertKVEntry(name string, value string, metadata string) error {
-	meta, err := models.MetadataFromJSONString(metadata)
-	if err != nil {
-		return err
-	}
-	newEntry := models.Entry{
-		Name:     name,
-		Metadata: meta,
-		Value:    value,
-	}
-	s.WriteEntry(newEntry)
-	return nil
-}
-
 func (s *CloudflareSession) WriteEntry(entry models.Entry) error {
 	return s.WriteEntries([]models.Entry{entry})
 }
@@ -163,7 +149,7 @@ func (s *CloudflareSession) WriteEntries(entries []models.Entry) error {
 	return nil
 }
 
-func (s *CloudflareSession) DeleteKeyValue(key string) {
+func (s *CloudflareSession) DeleteKeyValue(key string) error {
 	_, err := s.client.KV.Namespaces.Values.Delete(
 		context.Background(),
 		s.namespaceID,
@@ -173,13 +159,15 @@ func (s *CloudflareSession) DeleteKeyValue(key string) {
 		},
 	)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+
+	return nil
 }
 
-func (s *CloudflareSession) DeleteKeyValues(keys []string) {
+func (s *CloudflareSession) DeleteKeyValues(keys []string) error {
 	if len(keys) == 0 {
-		return
+		return nil
 	}
 
 	_, err := s.client.KV.Namespaces.BulkDelete(
@@ -191,8 +179,10 @@ func (s *CloudflareSession) DeleteKeyValues(keys []string) {
 		},
 	)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+
+	return nil
 }
 
 func entriesToBulkUpdateBodies(entries []models.Entry) []kv.NamespaceBulkUpdateParamsBody {
