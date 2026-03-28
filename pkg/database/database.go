@@ -213,22 +213,25 @@ func (cdb *Database) GetAllEntries() ([]models.Entry, error) {
 	return entries, nil
 }
 
-func (cdb *Database) InsertEntry(entry models.Entry) error {
+func (cdb *Database) UpsertEntry(entry models.Entry) error {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
 	tx, err := cdb.db.Begin()
 	if err != nil {
-		return fmt.Errorf("begin insert transaction: %w", err)
+		return fmt.Errorf("begin upsert transaction: %w", err)
 	}
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO records (name, value, metadata)
+		INSERT INTO records (name, value, metadata)
 		VALUES (?, ?, ?)
+		ON CONFLICT(name) DO UPDATE SET
+			value = excluded.value,
+			metadata = excluded.metadata
 	`)
 	if err != nil {
-		return fmt.Errorf("prepare insert statement: %w", err)
+		return fmt.Errorf("prepare upsert statement: %w", err)
 	}
 	defer stmt.Close()
 
@@ -238,11 +241,11 @@ func (cdb *Database) InsertEntry(entry models.Entry) error {
 	}
 
 	if _, err := stmt.Exec(entry.Name, entry.Value, metadata); err != nil {
-		return fmt.Errorf("insert entry %q: %w", entry.Name, err)
+		return fmt.Errorf("upsert entry %q: %w", entry.Name, err)
 	}
 
 	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("commit insert transaction: %w", err)
+		return fmt.Errorf("commit upsert transaction: %w", err)
 	}
 	return nil
 }
