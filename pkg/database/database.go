@@ -67,76 +67,132 @@ func (cdb *Database) DropTable() {
 	cdb.db.Exec(`DROP TABLE IF EXISTS records`)
 }
 
-func (cdb *Database) GetEntryByName(name string) models.Entry {
+func (cdb *Database) GetEntryByName(name string) (models.Entry, error) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
+
 	var value, metadataStr string
-	_ = cdb.db.QueryRow(`SELECT value, metadata FROM records WHERE name = ?`, name).Scan(&value, &metadataStr)
-	metadata, _ := models.MetadataFromJSONString(metadataStr)
-	entry := models.Entry{
+	err := cdb.db.QueryRow(
+		`SELECT value, metadata FROM records WHERE name = ?`,
+		name,
+	).Scan(&value, &metadataStr)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return models.Entry{}, nil
+		}
+		return models.Entry{}, fmt.Errorf("get entry by name %q: %w", name, err)
+	}
+
+	metadata, err := models.MetadataFromJSONString(metadataStr)
+	if err != nil {
+		return models.Entry{}, fmt.Errorf("parse metadata for %q: %w", name, err)
+	}
+
+	return models.Entry{
 		Name:     name,
 		Metadata: metadata,
 		Value:    value,
-	}
-	return entry
+	}, nil
 }
 
-func (cdb *Database) GetEntryByValue(value string) models.Entry {
+func (cdb *Database) GetEntryByValue(value string) (models.Entry, error) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
+
 	var name, metadataStr string
-	_ = cdb.db.QueryRow(`SELECT name, metadata FROM records WHERE value = ?`, value).Scan(&name, &metadataStr)
-	metadata, _ := models.MetadataFromJSONString(metadataStr)
-	entry := models.Entry{
+	err := cdb.db.QueryRow(
+		`SELECT name, metadata FROM records WHERE value = ?`,
+		value,
+	).Scan(&name, &metadataStr)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return models.Entry{}, nil
+		}
+		return models.Entry{}, fmt.Errorf("get entry by value %q: %w", value, err)
+	}
+
+	metadata, err := models.MetadataFromJSONString(metadataStr)
+	if err != nil {
+		return models.Entry{}, fmt.Errorf("parse metadata for %q: %w", name, err)
+	}
+
+	return models.Entry{
 		Name:     name,
 		Metadata: metadata,
 		Value:    value,
-	}
-	return entry
+	}, nil
 }
 
-func (cdb *Database) GetEntriesByValue(value string) []models.Entry {
+func (cdb *Database) GetEntriesByValue(value string) ([]models.Entry, error) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
-	rows, _ := cdb.db.Query(`SELECT name, value, metadata FROM records WHERE value = ?`, value)
+	rows, err := cdb.db.Query(`SELECT name, value, metadata FROM records WHERE value = ?`, value)
+	if err != nil {
+		return nil, fmt.Errorf("query entries by value %q: %w", value, err)
+	}
 	defer rows.Close()
 
-	var entries []models.Entry
+	entries := make([]models.Entry, 0)
 	for rows.Next() {
 		var name, valueStr, metadataStr string
-		rows.Scan(&name, &valueStr, &metadataStr)
+		if err := rows.Scan(&name, &valueStr, &metadataStr); err != nil {
+			return nil, fmt.Errorf("scan entry by value %q: %w", value, err)
+		}
 
-		metadata, _ := models.MetadataFromJSONString(metadataStr)
+		metadata, err := models.MetadataFromJSONString(metadataStr)
+		if err != nil {
+			return nil, fmt.Errorf("parse metadata for %q: %w", name, err)
+		}
+
 		entries = append(entries, models.Entry{
 			Name:     name,
 			Metadata: metadata,
 			Value:    valueStr,
 		})
 	}
-	return entries
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate entries by value %q: %w", value, err)
+	}
+
+	return entries, nil
 }
 
-func (cdb *Database) GetAllEntries() []models.Entry {
+func (cdb *Database) GetAllEntries() ([]models.Entry, error) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
-	rows, _ := cdb.db.Query(`SELECT name, value, metadata FROM records`)
+	rows, err := cdb.db.Query(`SELECT name, value, metadata FROM records`)
+	if err != nil {
+		return nil, fmt.Errorf("query all entries: %w", err)
+	}
 	defer rows.Close()
 
-	var entries []models.Entry
+	entries := make([]models.Entry, 0)
 	for rows.Next() {
 		var name, valueStr, metadataStr string
-		rows.Scan(&name, &valueStr, &metadataStr)
+		if err := rows.Scan(&name, &valueStr, &metadataStr); err != nil {
+			return nil, fmt.Errorf("scan entry: %w", err)
+		}
 
-		metadata, _ := models.MetadataFromJSONString(metadataStr)
+		metadata, err := models.MetadataFromJSONString(metadataStr)
+		if err != nil {
+			return nil, fmt.Errorf("parse metadata for %q: %w", name, err)
+		}
+
 		entries = append(entries, models.Entry{
 			Name:     name,
 			Value:    valueStr,
 			Metadata: metadata,
 		})
 	}
-	return entries
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate all entries: %w", err)
+	}
+
+	return entries, nil
 }
 
 func (cdb *Database) InsertEntry(datavalues models.Entry) {
@@ -162,44 +218,66 @@ func (cdb *Database) InsertEntry(datavalues models.Entry) {
 	}
 }
 
-func (cdb *Database) InsertEntries(datavalues []models.Entry) {
+func (cdb *Database) UpsertEntries(entries []models.Entry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
 	tx, err := cdb.db.Begin()
 	if err != nil {
-		fmt.Print("Failed To Begin Transaction:", err)
+		return fmt.Errorf("begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
-	stmt, _ := tx.Prepare(`
-		INSERT OR REPLACE INTO records (name, value, metadata)
+	stmt, err := tx.Prepare(`
+		INSERT INTO records (name, value, metadata)
 		VALUES (?, ?, ?)
+		ON CONFLICT(name) DO UPDATE SET
+			value = excluded.value,
+			metadata = excluded.metadata
 	`)
+	if err != nil {
+		return fmt.Errorf("prepare upsert statement: %w", err)
+	}
 	defer stmt.Close()
 
-	for _, datavalue := range datavalues {
-		metadata, _ := datavalue.Metadata.ToJSONString()
-		stmt.Exec(datavalue.Name, datavalue.Value, metadata)
+	for _, entry := range entries {
+		metadataJSON, err := entry.Metadata.ToJSONString()
+		if err != nil {
+			return fmt.Errorf("serialize metadata for %q: %w", entry.Name, err)
+		}
+
+		if _, err := stmt.Exec(entry.Name, entry.Value, metadataJSON); err != nil {
+			return fmt.Errorf("upsert entry %q: %w", entry.Name, err)
+		}
 	}
 
-	tx.Commit()
-	if err != nil {
-		fmt.Print("Failed To Commit Transaction:", err)
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit upsert transaction: %w", err)
 	}
+
+	return nil
 }
 
 func (cdb *Database) DeleteName(key string) error {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
-	_, err := cdb.db.Exec(`DELETE FROM records WHERE name = ?`, key)
-	if err != nil {
-		return err
+
+	if _, err := cdb.db.Exec(`DELETE FROM records WHERE name = ?`, key); err != nil {
+		return fmt.Errorf("delete name %q: %w", key, err)
 	}
+
 	return nil
 }
 
-func (cdb *Database) DeleteNames(names []string) {
+func (cdb *Database) DeleteNames(names []string) error {
+	if len(names) == 0 {
+		return nil
+	}
+
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
@@ -208,7 +286,12 @@ func (cdb *Database) DeleteNames(names []string) {
 	for i, name := range names {
 		args[i] = name
 	}
-	cdb.db.Exec(query, args...)
+
+	if _, err := cdb.db.Exec(query, args...); err != nil {
+		return fmt.Errorf("delete names: %w", err)
+	}
+
+	return nil
 }
 
 func (cdb *Database) DeleteEntry(entry models.Entry) {
@@ -221,13 +304,14 @@ func (cdb *Database) DeleteEntries(entries []models.Entry) {
 	}
 }
 
-func (cdb *Database) Size() int {
+func (cdb *Database) Size() (int, error) {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
-	query := `SELECT COUNT(*) FROM records`
 
 	var rowCount int
-	cdb.db.QueryRow(query).Scan(&rowCount)
+	if err := cdb.db.QueryRow(`SELECT COUNT(*) FROM records`).Scan(&rowCount); err != nil {
+		return 0, fmt.Errorf("count records: %w", err)
+	}
 
-	return rowCount
+	return rowCount, nil
 }

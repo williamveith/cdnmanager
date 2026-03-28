@@ -12,6 +12,7 @@ import (
 	"cdnmanager/pkg/database"
 	"cdnmanager/pkg/models"
 	"cdnmanager/pkg/session"
+	appsync "cdnmanager/pkg/sync"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -110,18 +111,39 @@ func (a *App) SyncFromCloudflare() error {
 		return err
 	}
 
-	cloudflareSize, _ := a.cloudflareSession.Size()
-	if a.db.Size() == cloudflareSize {
-		fmt.Println("Existing Database Up To Date")
-		return nil
+	cloudflareEntries, err := a.cloudflareSession.GetAllEntriesBulk()
+	if err != nil {
+		return fmt.Errorf("fetch cloudflare entries: %w", err)
 	}
 
-	fmt.Println("Initializing Table With Cloudflare Values...")
-	entries := a.cloudflareSession.GetAllEntriesBulk()
-	a.db.DropTable()
-	a.db.CreateTable()
-	a.db.InsertEntries(entries)
-	fmt.Println("Local Database Updated...")
+	databaseEntries, err := a.db.GetAllEntries()
+	if err != nil {
+		return fmt.Errorf("fetch database entries: %w", err)
+	}
+
+	plan, err := appsync.Reconcile(cloudflareEntries, databaseEntries)
+	if err != nil {
+		return fmt.Errorf("reconcile entries: %w", err)
+	}
+
+	if err := a.db.DeleteNames(plan.ToDelete); err != nil {
+		return fmt.Errorf("delete stale database entries: %w", err)
+	}
+
+	toWrite := make([]models.Entry, 0, len(plan.ToInsert)+len(plan.ToUpdate))
+	toWrite = append(toWrite, plan.ToInsert...)
+	toWrite = append(toWrite, plan.ToUpdate...)
+
+	if err := a.db.UpsertEntries(toWrite); err != nil {
+		return fmt.Errorf("upsert database entries: %w", err)
+	}
+
+	fmt.Printf(
+		"Sync complete. Inserted: %d, Updated: %d, Deleted: %d\n",
+		len(plan.ToInsert),
+		len(plan.ToUpdate),
+		len(plan.ToDelete),
+	)
 
 	return nil
 }

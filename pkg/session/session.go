@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"cdnmanager/pkg/config"
 	"cdnmanager/pkg/models"
@@ -49,7 +48,7 @@ func NewCloudflareSession(cfg config.Config) (*CloudflareSession, error) {
 	}, nil
 }
 
-func (s *CloudflareSession) GetAllKeys() []kv.Key {
+func (s *CloudflareSession) GetAllKeys() ([]kv.Key, error) {
 	pager := s.client.KV.Namespaces.Keys.ListAutoPaging(
 		context.Background(),
 		s.namespaceID,
@@ -64,17 +63,20 @@ func (s *CloudflareSession) GetAllKeys() []kv.Key {
 	}
 
 	if err := pager.Err(); err != nil {
-		log.Printf("failed to list KV keys: %v", err)
-		return nil
+		return nil, fmt.Errorf("failed to list KV keys: %w", err)
 	}
 
-	return keys
+	return keys, nil
 }
 
-func (s *CloudflareSession) GetAllEntriesBulk() []models.Entry {
-	keys := s.GetAllKeys()
+func (s *CloudflareSession) GetAllEntriesBulk() ([]models.Entry, error) {
+	keys, err := s.GetAllKeys()
+	if err != nil {
+		return nil, fmt.Errorf("get all keys: %w", err)
+	}
+
 	if len(keys) == 0 {
-		return []models.Entry{}
+		return []models.Entry{}, nil
 	}
 
 	keyNames := make([]string, 0, len(keys))
@@ -82,7 +84,7 @@ func (s *CloudflareSession) GetAllEntriesBulk() []models.Entry {
 		keyNames = append(keyNames, k.Name)
 	}
 
-	var entries []models.Entry
+	entries := make([]models.Entry, 0, len(keyNames))
 
 	for start := 0; start < len(keyNames); start += bulkGetChunkSize {
 		end := start + bulkGetChunkSize
@@ -102,24 +104,25 @@ func (s *CloudflareSession) GetAllEntriesBulk() []models.Entry {
 			},
 		)
 		if err != nil {
-			log.Printf("failed bulk get for keys %d:%d: %v", start, end, err)
-			continue
+			return nil, fmt.Errorf("bulk get for keys %d:%d: %w", start, end, err)
 		}
 
 		chunkEntries, err := normalizeBulkGetResponse(resp)
 		if err != nil {
-			log.Printf("failed to normalize bulk get for keys %d:%d: %v", start, end, err)
-			continue
+			return nil, fmt.Errorf("normalize bulk get response for keys %d:%d: %w", start, end, err)
 		}
 
 		entries = append(entries, chunkEntries...)
 	}
 
-	return entries
+	return entries, nil
 }
 
 func (s *CloudflareSession) Size() (int, []kv.Key) {
-	entries := s.GetAllKeys()
+	entries, err := s.GetAllKeys()
+	if err != nil {
+		return 0, nil
+	}
 	return len(entries), entries
 }
 
