@@ -11,8 +11,8 @@ import (
 	"cdnmanager/pkg/config"
 	"cdnmanager/pkg/database"
 	"cdnmanager/pkg/models"
+	"cdnmanager/pkg/reconcile"
 	"cdnmanager/pkg/session"
-	appsync "cdnmanager/pkg/sync"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -121,7 +121,7 @@ func (a *App) SyncFromCloudflare() error {
 		return fmt.Errorf("fetch database entries: %w", err)
 	}
 
-	plan, err := appsync.Reconcile(cloudflareEntries, databaseEntries)
+	plan, err := reconcile.Reconcile(cloudflareEntries, databaseEntries)
 	if err != nil {
 		return fmt.Errorf("reconcile entries: %w", err)
 	}
