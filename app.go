@@ -85,12 +85,12 @@ func (a *App) InitializeSession() error {
 		return fmt.Errorf("config is incomplete")
 	}
 
-	sess, err := session.NewCloudflareSession(*cfg)
+	session, err := session.NewCloudflareSession(*cfg)
 	if err != nil {
 		return err
 	}
 
-	a.cloudflareSession = sess
+	a.cloudflareSession = session
 	return nil
 }
 
@@ -207,13 +207,6 @@ func SaveTemplateFile() (string, error) {
 	return filePath, nil
 }
 
-func openInFinder(path string) {
-	cmd := exec.Command("open", "-R", path)
-	if err := cmd.Start(); err != nil {
-		fmt.Println("Error opening Finder:", err)
-	}
-}
-
 func (a *App) GenerateCSV() (string, error) {
 	path, err := SaveTemplateFile()
 	if err != nil {
@@ -222,4 +215,11 @@ func (a *App) GenerateCSV() (string, error) {
 
 	openInFinder(path)
 	return path, nil
+}
+
+func openInFinder(path string) {
+	cmd := exec.Command("open", "-R", path)
+	if err := cmd.Start(); err != nil {
+		fmt.Println("Error opening Finder:", err)
+	}
 }
