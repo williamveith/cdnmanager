@@ -6,17 +6,19 @@ import (
 	"path/filepath"
 )
 
+const CurrentVersion = 1
+
 type Config struct {
-	CloudflareEmail  string `json:"cloudflare_email"`
-	CloudflareAPIKey string `json:"cloudflare_api_key"`
-	AccountID        string `json:"account_id"`
-	NamespaceID      string `json:"namespace_id"`
-	Domain           string `json:"domain"`
+	Version int `json:"version"`
+
+	CloudflareAPIToken string `json:"cloudflare_api_token"`
+	AccountID          string `json:"account_id"`
+	NamespaceID        string `json:"namespace_id"`
+	Domain             string `json:"domain"`
 }
 
 func (c Config) IsComplete() bool {
-	return c.CloudflareEmail != "" &&
-		c.CloudflareAPIKey != "" &&
+	return c.CloudflareAPIToken != "" &&
 		c.AccountID != "" &&
 		c.NamespaceID != "" &&
 		c.Domain != ""
@@ -33,10 +35,17 @@ func LoadConfig(configPath string) (*Config, error) {
 		return nil, err
 	}
 
+	// handle missing version (older files or manual edits)
+	if cfg.Version == 0 {
+		cfg.Version = CurrentVersion
+	}
+
 	return &cfg, nil
 }
 
 func SaveConfig(configPath string, cfg Config) error {
+	cfg.Version = CurrentVersion
+
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
 		return err
 	}

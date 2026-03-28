@@ -6,9 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"cdnmanager/pkg/config"
 	"cdnmanager/pkg/database"
+	"cdnmanager/pkg/models"
+	"cdnmanager/pkg/reconcile"
 	"cdnmanager/pkg/session"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -83,12 +86,12 @@ func (a *App) InitializeSession() error {
 		return fmt.Errorf("config is incomplete")
 	}
 
-	sess, err := session.NewCloudflareSession(*cfg)
+	session, err := session.NewCloudflareSession(*cfg)
 	if err != nil {
 		return err
 	}
 
-	a.cloudflareSession = sess
+	a.cloudflareSession = session
 	return nil
 }
 
@@ -108,18 +111,39 @@ func (a *App) SyncFromCloudflare() error {
 		return err
 	}
 
-	cloudflareSize, storageKeys := a.cloudflareSession.Size()
-	if a.db.Size() == cloudflareSize {
-		fmt.Println("Existing Database Up To Date")
-		return nil
+	cloudflareEntries, err := a.cloudflareSession.GetAllEntriesBulk()
+	if err != nil {
+		return fmt.Errorf("fetch cloudflare entries: %w", err)
 	}
 
-	fmt.Println("Initializing Table With Cloudflare Values...")
-	entries := a.cloudflareSession.GetAllEntriesFromKeys(storageKeys)
-	a.db.DropTable()
-	a.db.CreateTable()
-	a.db.InsertEntries(entries)
-	fmt.Println("Local Database Updated...")
+	databaseEntries, err := a.db.GetAllEntries()
+	if err != nil {
+		return fmt.Errorf("fetch database entries: %w", err)
+	}
+
+	plan, err := reconcile.Reconcile(cloudflareEntries, databaseEntries)
+	if err != nil {
+		return fmt.Errorf("reconcile entries: %w", err)
+	}
+
+	if err := a.db.DeleteNames(plan.ToDelete); err != nil {
+		return fmt.Errorf("delete stale database entries: %w", err)
+	}
+
+	toWrite := make([]models.Entry, 0, len(plan.ToInsert)+len(plan.ToUpdate))
+	toWrite = append(toWrite, plan.ToInsert...)
+	toWrite = append(toWrite, plan.ToUpdate...)
+
+	if err := a.db.UpsertEntries(toWrite); err != nil {
+		return fmt.Errorf("upsert database entries: %w", err)
+	}
+
+	fmt.Printf(
+		"Sync complete. Inserted: %d, Updated: %d, Deleted: %d\n",
+		len(plan.ToInsert),
+		len(plan.ToUpdate),
+		len(plan.ToDelete),
+	)
 
 	return nil
 }
@@ -143,24 +167,45 @@ func (a *App) SetupAndSync(cfg config.Config) error {
 }
 
 // -----------------------------------------------------------------------------
-// Cloudflare KV actions
+// data operation primitives
 // -----------------------------------------------------------------------------
 
-func (a *App) InsertKVEntry(name string, value string, metadata string) error {
+func (a *App) Insert(name string, value string, metadata string) error {
 	if err := a.ensureSession(); err != nil {
 		return err
 	}
 
-	a.cloudflareSession.InsertKVEntry(name, value, metadata)
+	meta, err := models.MetadataFromJSONString(metadata)
+	if err != nil {
+		return err
+	}
+
+	newEntry := models.Entry{
+		Name:     name,
+		Metadata: meta,
+		Value:    value,
+	}
+
+	newEntry.Metadata.Modified = time.Now().Unix()
+
+	if err := a.cloudflareSession.WriteEntry(newEntry); err != nil {
+		return err
+	}
+	a.db.InsertEntry(newEntry)
+
 	return nil
 }
 
-func (a *App) DeleteKeyValue(key string) error {
+func (a *App) Delete(key string) error {
 	if err := a.ensureSession(); err != nil {
 		return err
 	}
-
-	a.cloudflareSession.DeleteKeyValue(key)
+	if err := a.cloudflareSession.DeleteKeyValue(key); err != nil {
+		return err
+	}
+	if err := a.db.DeleteName(key); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -184,13 +229,6 @@ func SaveTemplateFile() (string, error) {
 	return filePath, nil
 }
 
-func openInFinder(path string) {
-	cmd := exec.Command("open", "-R", path)
-	if err := cmd.Start(); err != nil {
-		fmt.Println("Error opening Finder:", err)
-	}
-}
-
 func (a *App) GenerateCSV() (string, error) {
 	path, err := SaveTemplateFile()
 	if err != nil {
@@ -199,4 +237,11 @@ func (a *App) GenerateCSV() (string, error) {
 
 	openInFinder(path)
 	return path, nil
+}
+
+func openInFinder(path string) {
+	cmd := exec.Command("open", "-R", path)
+	if err := cmd.Start(); err != nil {
+		fmt.Println("Error opening Finder:", err)
+	}
 }

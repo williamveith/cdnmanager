@@ -161,7 +161,6 @@ build: check ## Build the Wails application in production mode
 	@echo "Results:"
 	@echo "  Build                | Success"
 	@echo "  Application          | $(shell pwd)/$(APP_SOURCE)"
-	@open "$(shell pwd)/$(BIN_DIR)"
 
 test: check ## Start the Wails development environment
 	@$(MAKE) start-section
@@ -237,7 +236,6 @@ dmg: stage-dmg ## Create a signed-path DMG from staged contents
 		-format UDZO \
 		"$(DMG_PATH)"
 	@echo "$(GREEN)DMG Created$(RESET) | $(shell pwd)/$(DMG_PATH)"
-	@open "$(shell pwd)/$(BIN_DIR)"
 
 dmg-unsigned: stage-dmg-unsigned ## Create unsigned DMG
 	@$(MAKE) start-section
@@ -250,7 +248,6 @@ dmg-unsigned: stage-dmg-unsigned ## Create unsigned DMG
 		-format UDZO \
 		"$(DMG_PATH)"
 	@echo "$(GREEN)Unsigned DMG Created$(RESET) | $(shell pwd)/$(DMG_PATH)"
-	@open "$(shell pwd)/$(BIN_DIR)"
 
 # =========================================================
 # DMG signing / notarization
@@ -284,7 +281,6 @@ verify-notarization: staple-dmg ## Verify notarized DMG
 	@xcrun stapler validate "$(DMG_PATH)"
 	@spctl -a -t open -vvv --context context:primary-signature "$(DMG_PATH)"
 	@echo "$(GREEN)Notarization Verified$(RESET) | $(shell pwd)/$(DMG_PATH)"
-	@open "$(shell pwd)/$(BIN_DIR)"
 
 # =========================================================
 # Cleanup
