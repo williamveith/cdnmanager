@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"cdnmanager/pkg/config"
@@ -64,7 +65,7 @@ func (a *App) IsConfigured() bool {
 func (a *App) GetDomain() (string, error) {
 	cfg, err := config.LoadConfig(a.configPath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("load config: %w", err)
 	}
 	return cfg.Domain, nil
 }
@@ -86,12 +87,12 @@ func (a *App) InitializeSession() error {
 		return fmt.Errorf("config is incomplete")
 	}
 
-	session, err := session.NewCloudflareSession(*cfg)
+	cfSession, err := session.NewCloudflareSession(*cfg)
 	if err != nil {
-		return err
+		return fmt.Errorf("initialize cloudflare session: %w", err)
 	}
 
-	a.cloudflareSession = session
+	a.cloudflareSession = cfSession
 	return nil
 }
 
@@ -154,7 +155,7 @@ func (a *App) SetupAndSync(cfg config.Config) error {
 	}
 
 	if err := a.SaveConfig(cfg); err != nil {
-		return err
+		return fmt.Errorf("save config: %w", err)
 	}
 
 	a.cloudflareSession = nil
@@ -172,40 +173,55 @@ func (a *App) SetupAndSync(cfg config.Config) error {
 
 func (a *App) Insert(name string, value string, metadata string) error {
 	if err := a.ensureSession(); err != nil {
-		return err
+		return fmt.Errorf("ensure session: %w", err)
 	}
 
 	meta, err := models.MetadataFromJSONString(metadata)
 	if err != nil {
-		return err
+		return fmt.Errorf("parse metadata: %w", err)
 	}
 
+	meta.Modified = time.Now().Unix()
+
 	newEntry := models.Entry{
-		Name:     name,
+		Name:     strings.TrimSpace(name),
 		Metadata: meta,
 		Value:    value,
 	}
 
-	newEntry.Metadata.Modified = time.Now().Unix()
+	if newEntry.Name == "" {
+		return fmt.Errorf("name cannot be empty")
+	}
 
 	if err := a.cloudflareSession.WriteEntry(newEntry); err != nil {
-		return err
+		return fmt.Errorf("write entry to cloudflare: %w", err)
 	}
-	a.db.InsertEntry(newEntry)
+
+	if err := a.db.UpsertEntry(newEntry); err != nil {
+		return fmt.Errorf("cloudflare write succeeded but local database upsert failed: %w", err)
+	}
 
 	return nil
 }
 
 func (a *App) Delete(key string) error {
 	if err := a.ensureSession(); err != nil {
-		return err
+		return fmt.Errorf("ensure session: %w", err)
 	}
+
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return fmt.Errorf("key cannot be empty")
+	}
+
 	if err := a.cloudflareSession.DeleteKeyValue(key); err != nil {
-		return err
+		return fmt.Errorf("delete entry from cloudflare: %w", err)
 	}
+
 	if err := a.db.DeleteName(key); err != nil {
-		return err
+		return fmt.Errorf("cloudflare delete succeeded but local database delete failed: %w", err)
 	}
+
 	return nil
 }
 

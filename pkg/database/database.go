@@ -3,7 +3,6 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 
@@ -22,49 +21,68 @@ func (cdb *Database) GetFileName() string {
 	return cdb.dbName
 }
 
-func NewDatabase(dbName string) *Database {
-	db, _ := sql.Open("sqlite3", dbName)
-
-	return &Database{
-		dbName: dbName,
-		db:     db,
-	}
-}
-
-func NewDatabaseFromSchema(dbName string, schema []byte) *Database {
+func NewDatabase(dbName string) (*Database, error) {
 	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
-		log.Fatalf("Failed to open SQLite database: %v", err)
+		return nil, fmt.Errorf("open sqlite database: %w", err)
 	}
 
-	_, err = db.Exec(string(schema))
-	if err != nil {
-		log.Fatalf("Failed to initialize database schema: %v", err)
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("ping sqlite database: %w", err)
 	}
 
 	return &Database{
 		dbName: dbName,
 		db:     db,
-	}
+	}, nil
 }
 
-func (cdb *Database) CreateTable() {
+func NewDatabaseFromSchema(dbName string, schema []byte) (*Database, error) {
+	db, err := sql.Open("sqlite3", dbName)
+	if err != nil {
+		return nil, fmt.Errorf("open sqlite database: %w", err)
+	}
+
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("ping sqlite database: %w", err)
+	}
+
+	if _, err = db.Exec(string(schema)); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("initialize schema: %w", err)
+	}
+
+	return &Database{
+		dbName: dbName,
+		db:     db,
+	}, nil
+}
+
+func (cdb *Database) CreateTable() error {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
-	cdb.db.Exec(`
+	if _, err := cdb.db.Exec(`
 		CREATE TABLE IF NOT EXISTS records (
 			name TEXT PRIMARY KEY,
 			value TEXT,
 			metadata TEXT
 		)
-	`)
+	`); err != nil {
+		return fmt.Errorf("create table records: %w", err)
+	}
+	return nil
 }
 
-func (cdb *Database) DropTable() {
+func (cdb *Database) DropTable() error {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
-	cdb.db.Exec(`DROP TABLE IF EXISTS records`)
+	if _, err := cdb.db.Exec(`DROP TABLE IF EXISTS records`); err != nil {
+		return fmt.Errorf("drop table records: %w", err)
+	}
+	return nil
 }
 
 func (cdb *Database) GetEntryByName(name string) (models.Entry, error) {
@@ -195,27 +213,41 @@ func (cdb *Database) GetAllEntries() ([]models.Entry, error) {
 	return entries, nil
 }
 
-func (cdb *Database) InsertEntry(datavalues models.Entry) {
+func (cdb *Database) UpsertEntry(entry models.Entry) error {
 	cdb.lock.Lock()
 	defer cdb.lock.Unlock()
 
 	tx, err := cdb.db.Begin()
 	if err != nil {
-		fmt.Print("Failed To Begin Transaction:", err)
+		return fmt.Errorf("begin upsert transaction: %w", err)
 	}
 	defer tx.Rollback()
 
-	stmt, _ := tx.Prepare(`
-		INSERT OR REPLACE INTO records (name, value, metadata)
+	stmt, err := tx.Prepare(`
+		INSERT INTO records (name, value, metadata)
 		VALUES (?, ?, ?)
+		ON CONFLICT(name) DO UPDATE SET
+			value = excluded.value,
+			metadata = excluded.metadata
 	`)
-	defer stmt.Close()
-	metadata, _ := datavalues.Metadata.ToJSONString()
-	stmt.Exec(datavalues.Name, datavalues.Value, metadata)
-	err = tx.Commit()
 	if err != nil {
-		fmt.Print("Failed To Commit Transaction:", err)
+		return fmt.Errorf("prepare upsert statement: %w", err)
 	}
+	defer stmt.Close()
+
+	metadata, err := entry.Metadata.ToJSONString()
+	if err != nil {
+		return fmt.Errorf("serialize metadata for %q: %w", entry.Name, err)
+	}
+
+	if _, err := stmt.Exec(entry.Name, entry.Value, metadata); err != nil {
+		return fmt.Errorf("upsert entry %q: %w", entry.Name, err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit upsert transaction: %w", err)
+	}
+	return nil
 }
 
 func (cdb *Database) UpsertEntries(entries []models.Entry) error {
@@ -294,14 +326,17 @@ func (cdb *Database) DeleteNames(names []string) error {
 	return nil
 }
 
-func (cdb *Database) DeleteEntry(entry models.Entry) {
-	cdb.DeleteName(entry.Name)
+func (cdb *Database) DeleteEntry(entry models.Entry) error {
+	return cdb.DeleteName(entry.Name)
 }
 
-func (cdb *Database) DeleteEntries(entries []models.Entry) {
+func (cdb *Database) DeleteEntries(entries []models.Entry) error {
 	for _, entry := range entries {
-		cdb.DeleteEntry(entry)
+		if err := cdb.DeleteEntry(entry); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (cdb *Database) Size() (int, error) {

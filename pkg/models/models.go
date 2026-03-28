@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 type Entry struct {
@@ -22,38 +23,34 @@ type Metadata struct {
 	Modified int64 `json:"modified,omitempty"`
 }
 
-// Serialization methods for Metadata
-func (m *Metadata) ToJSONString() (string, error) {
+func (m Metadata) ToJSONString() (string, error) {
 	jsonBytes, err := json.Marshal(m)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("marshal metadata: %w", err)
 	}
 	return string(jsonBytes), nil
 }
 
 func MetadataFromJSONString(jsonStr string) (Metadata, error) {
 	var meta Metadata
-	err := json.Unmarshal([]byte(jsonStr), &meta)
-	if err != nil {
-		return Metadata{}, err
+	if err := json.Unmarshal([]byte(jsonStr), &meta); err != nil {
+		return Metadata{}, fmt.Errorf("unmarshal metadata: %w", err)
 	}
 	return meta, nil
 }
 
-// Serialization methods for Entry
-func (e *Entry) ToJSONString() (string, error) {
+func (e Entry) ToJSONString() (string, error) {
 	jsonBytes, err := json.Marshal(e)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("marshal entry: %w", err)
 	}
 	return string(jsonBytes), nil
 }
 
 func EntryFromJSONString(jsonStr string) (Entry, error) {
 	var entry Entry
-	err := json.Unmarshal([]byte(jsonStr), &entry)
-	if err != nil {
-		return Entry{}, err
+	if err := json.Unmarshal([]byte(jsonStr), &entry); err != nil {
+		return Entry{}, fmt.Errorf("unmarshal entry: %w", err)
 	}
 	return entry, nil
 }

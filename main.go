@@ -30,9 +30,13 @@ const appFolderName = "cdnmanager"
 
 func initializeDatabase(dbPath string) (*database.Database, error) {
 	if _, err := os.Stat(dbPath); err == nil {
-		return database.NewDatabase(dbPath), nil
+		db, err := database.NewDatabase(dbPath)
+		if err != nil {
+			return nil, fmt.Errorf("open existing database: %w", err)
+		}
+		return db, nil
 	} else if !os.IsNotExist(err) {
-		return nil, fmt.Errorf("failed to stat database: %w", err)
+		return nil, fmt.Errorf("stat database: %w", err)
 	}
 
 	fmt.Println("Database not found. Creating a new one...")
@@ -42,9 +46,9 @@ func initializeDatabase(dbPath string) (*database.Database, error) {
 		return nil, fmt.Errorf("failed to read embedded schema: %w", err)
 	}
 
-	db := database.NewDatabaseFromSchema(dbPath, schema)
-	if db == nil {
-		return nil, fmt.Errorf("database creation returned nil")
+	db, err := database.NewDatabaseFromSchema(dbPath, schema)
+	if err != nil {
+		return nil, fmt.Errorf("create database from schema: %w", err)
 	}
 
 	return db, nil
@@ -77,25 +81,26 @@ func appPaths() (appDir string, dbPath string, configPath string, err error) {
 
 func main() {
 	appDir, dbPath, configPath, err := appPaths()
+
 	if err != nil {
-		fmt.Println(err)
-		return
+		fmt.Fprintf(os.Stderr, "resolve app paths: %v\n", err)
+		os.Exit(1)
 	}
 
 	if err := os.MkdirAll(appDir, 0755); err != nil {
-		fmt.Println("Failed to create app directory:", err)
-		return
+		fmt.Fprintf(os.Stderr, "create app directory: %v\n", err)
+		os.Exit(1)
 	}
 
 	if err := initializeConfig(configPath); err != nil {
-		fmt.Println("Failed to initialize config:", err)
-		return
+		fmt.Fprintf(os.Stderr, "initialize config: %v\n", err)
+		os.Exit(1)
 	}
 
 	cdnDB, err := initializeDatabase(dbPath)
 	if err != nil {
-		fmt.Println("Failed to initialize database:", err)
-		return
+		fmt.Fprintf(os.Stderr, "failed to initialize database: %v\n", err)
+		os.Exit(1)
 	}
 
 	app := NewApp(cdnDB, configPath)
@@ -165,6 +170,7 @@ func main() {
 		},
 	})
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Fprintf(os.Stderr, "run wails app: %v\n", err)
+		os.Exit(1)
 	}
 }
