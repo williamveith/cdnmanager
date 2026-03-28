@@ -1,84 +1,100 @@
 # CDN Manager
 
-CDN Manager is a native desktop application for managing **Cloudflare Workers KV** through a local desktop interface.
+CDN Manager is a native desktop application for managing Cloudflare Workers KV through a local desktop interface.
 
-Instead of working directly in the Cloudflare dashboard, the app syncs KV records into a local **SQLite** database so records can be searched, reviewed, inserted, and deleted quickly from a desktop UI.
+Instead of working directly in the Cloudflare dashboard, the app syncs KV records into a local SQLite database so records can be searched, reviewed, inserted, and deleted quickly from a desktop UI.
 
 The application is built with:
 
-- **Go**
-- **Wails**
-- **SQLite**
-- **Vanilla JavaScript**
-- **Fuse.js** for approximate table search
+* Go
+* Wails
+* SQLite
+* Vanilla JavaScript
+* Fuse.js for approximate table search
 
-macOS releases are packaged as a **universal DMG** containing a universal app bundle for both **Apple Silicon (`arm64`)** and **Intel (`x86_64`)** Macs. Release builds are **Developer ID signed** and **Apple notarized**.
+macOS releases are packaged as a universal DMG containing a universal app bundle for both Apple Silicon (arm64) and Intel (x86_64) Macs. Release builds are Developer ID signed and Apple notarized.
 
 ---
 
 ## Features
 
 ### Cloudflare KV management
-- Syncs records from a Cloudflare Workers KV namespace into a local SQLite database
-- Inserts KV records with structured metadata
-- Deletes KV records from Cloudflare and the local database
-- Uses the configured domain to generate shareable entry links
+
+* Syncs records from a Cloudflare Workers KV namespace into a local SQLite database
+* Inserts KV records with structured metadata
+* Deletes KV records from Cloudflare and the local database
+* Uses the configured domain to generate shareable entry links
 
 ### Local database workflow
-- Maintains a local SQLite cache of KV records for fast lookups
-- Supports search by:
-  - all entries
-  - UUID
-  - URL (single result)
-  - URL (multiple results)
-- Supports approximate in-table search using Fuse.js on metadata fields:
-  - name
-  - mimetype
-  - location
-  - description
+
+* Maintains a local SQLite cache of KV records for fast lookups
+
+* Supports search by:
+
+  * all entries
+  * UUID
+  * URL (single result)
+  * URL (multiple results)
+
+* Supports approximate in-table search using Fuse.js on metadata fields:
+
+  * name
+  * mimetype
+  * location
+  * description
 
 ### Metadata support
+
 Each KV record can include structured metadata:
 
-- `name`
-- `external`
-- `mimetype`
-- `location`
-- `cloud_storage_id`
-- `md5Checksum`
-- `description`
+* name
+* external
+* mimetype
+* location
+* cloud_storage_id
+* md5Checksum
+* description
 
 ### Bulk insertion support
-- Downloadable CSV template for bulk inserts
-- CSV-based insert workflow from the desktop UI
 
-### Desktop-focused behavior
-- Native desktop shell via Wails
-- Finder reveal for downloaded bulk insert template
-- Cross-platform window configuration for macOS, Windows, and Linux
+* Downloadable CSV template for bulk inserts
+* CSV-based insert workflow from the desktop UI
 
-### macOS distribution
-- Universal macOS app bundle (`arm64` + `x86_64`)
-- Universal DMG installer
-- Developer ID signed
-- Apple notarized
-- Gatekeeper-compatible distribution
+---
 
-### Developer release pipeline
-- Signed Git commits
-- Signed Git tags
-- Tagged GitHub releases
-- Universal macOS build generation
-- App signing
-- DMG packaging
-- Apple notarization
-- Stapling and validation before release upload
+## macOS Distribution
+
+* Universal macOS app bundle (arm64 + x86_64)
+* Universal DMG installer
+* Developer ID signed
+* Apple notarized
+* Gatekeeper-compatible distribution
+
+---
+
+## Developer Release Pipeline
+
+### Source provenance
+
+* Signed Git commits
+* Signed Git tags
+* Tagged GitHub releases
+
+### Build and distribution
+
+* Universal macOS build generation
+* App bundle signing (Developer ID)
+* DMG packaging
+* Apple notarization
+* Stapling and verification
+
+> Note: Git tagging and GitHub release publishing are performed outside of the Makefile.
 
 ---
 
 ## Project Structure
 
-```text
+```
 .
 ├── Makefile
 ├── README.md
@@ -93,33 +109,27 @@ Each KV record can include structured metadata:
 │   ├── package.json.md5
 │   ├── src
 │   │   ├── assets
-│   │   │   ├── fonts
-│   │   │   └── images
 │   │   ├── main.js
 │   │   └── styles
-│   │       └── app.css
 │   └── wailsjs
 ├── go.mod
 ├── go.sum
 ├── hooks
-│   ├── postbuild.sh
-│   └── prebuild.sh
 ├── main.go
 ├── pkg
 │   ├── config
-│   │   └── config.go
 │   ├── database
-│   │   └── database.go
 │   ├── models
-│   │   └── models.go
+│   ├── reconcile
 │   └── session
-│       └── session.go
 └── wails.json
-````
+```
 
-### Key components
+---
 
-#### `main.go`
+## Key Components
+
+### `main.go`
 
 Application entry point. Responsible for:
 
@@ -129,7 +139,9 @@ Application entry point. Responsible for:
 * embedding frontend assets and schema
 * launching the Wails desktop app
 
-#### `app.go`
+---
+
+### `app.go`
 
 Main application bridge exposed to the frontend. Handles:
 
@@ -140,11 +152,15 @@ Main application bridge exposed to the frontend. Handles:
 * insert/delete actions
 * generating the CSV bulk insert template
 
-#### `pkg/config`
+---
+
+### `pkg/config`
 
 Defines the application config structure and JSON load/save behavior.
 
-#### `pkg/session`
+---
+
+### `pkg/session`
 
 Wraps Cloudflare Workers KV API operations, including:
 
@@ -152,36 +168,53 @@ Wraps Cloudflare Workers KV API operations, including:
 * reading values
 * inserting entries
 * deleting entries
-* loading all entries from KV
-* concurrent retrieval of KV values from known storage keys
+* loading KV entries
+* concurrent retrieval of KV values
 
-#### `pkg/database`
+---
+
+### `pkg/reconcile`
+
+Responsible for synchronizing Cloudflare KV state with the local SQLite database.
+
+* Compares remote KV data against the local cache
+* Determines when a full rebuild or update is required
+* Ensures local database consistency with Cloudflare
+* Acts as the coordination layer between `pkg/session` and `pkg/database`
+
+This package isolates synchronization logic from both the API layer and storage layer.
+
+---
+
+### `pkg/database`
 
 Local SQLite cache layer for:
 
 * creating/dropping the records table
 * inserting entries
 * deleting entries
-* querying records by UUID or value
-* retrieving all cached entries
+* querying records
+* retrieving cached entries
 
-#### `pkg/models`
+---
+
+### `pkg/models`
 
 Shared record and metadata models with JSON serialization helpers.
 
-#### `frontend/src/main.js`
+---
 
-Main UI logic for:
+### `frontend/src/main.js`
+
+Handles:
 
 * initial config flow
 * syncing on startup
-* searching and rendering the table
+* search and rendering
 * approximate search
-* manual insert form
-* CSV insert workflow
-* delete workflow
-* copy-to-clipboard behavior
-* dynamic link generation based on configured domain
+* insert/delete workflows
+* CSV processing
+* dynamic link generation
 
 ---
 
@@ -189,177 +222,122 @@ Main UI logic for:
 
 ### 1. First launch
 
-On startup, the app:
+* resolves user config directory
+* creates `cdnmanager/`
+* initializes `config.json` and database
+* loads frontend
 
-* determines the platform-specific user config directory
-* creates an app folder named `cdnmanager`
-* creates `config.json` if it does not exist
-* creates `cdnmanager.sqlite3` if it does not exist
-* initializes the frontend
+---
 
 ### 2. Configuration
 
-If the config is incomplete, the app presents a setup form asking for:
+Prompts for:
 
-* Cloudflare email
-* Cloudflare API key
+* Cloudflare API token
 * Cloudflare account ID
 * Cloudflare namespace ID
 * domain
 
-The frontend validates these inputs before submission.
+---
 
 ### 3. Sync
 
-After configuration is saved, the app:
+* initializes Cloudflare session
+* retrieves KV state
+* runs reconciliation against local DB via `pkg/reconcile`
+* updates or rebuilds cache as needed
 
-* creates a Cloudflare session
-* fetches KV keys
-* compares Cloudflare KV count against the local database count
-* rebuilds the local table if the counts differ
+---
 
 ### 4. Search and browse
 
-The local SQLite cache is used to display and search records quickly.
+All reads occur against the local SQLite cache.
+
+---
 
 ### 5. Insert and delete
 
-Manual inserts and CSV inserts write to:
+Writes are applied to:
 
 * Cloudflare Workers KV
-* the local SQLite cache
-
-Deletes remove records from:
-
-* Cloudflare Workers KV
-* the local SQLite cache
+* local SQLite database
 
 ---
 
 ## Configuration File
 
-The application stores configuration in a JSON file named `config.json`.
-
-Example:
+`config.json`
 
 ```json
 {
-  "cloudflare_email": "you@example.com",
-  "cloudflare_api_key": "your_api_token",
+  "cloudflare_api_token": "your_api_token",
   "account_id": "0123456789abcdef0123456789abcdef",
   "namespace_id": "fedcba9876543210fedcba9876543210",
   "domain": "cdn.example.com"
 }
 ```
 
-### Config fields
+### Fields
 
-* `cloudflare_email`: Cloudflare account email
-* `cloudflare_api_key`: Cloudflare API token/key used by the app
-* `account_id`: Cloudflare account ID
-* `namespace_id`: Workers KV namespace ID
-* `domain`: base domain used to generate entry links
-
-The app normalizes the configured domain so both of these work:
-
-* `cdn.example.com`
-* `https://cdn.example.com`
+* `cloudflare_api_token`
+* `account_id`
+* `namespace_id`
+* `domain`
 
 ---
 
 ## Local Data Paths
 
-The app stores its files under the user's config directory in an app folder named `cdnmanager`.
-
-Files created by the app:
-
-* `config.json`
-* `cdnmanager.sqlite3`
-
-The exact base directory depends on the OS, based on `os.UserConfigDir()`.
+```
+cdnmanager/
+├── config.json
+└── cdnmanager.sqlite3
+```
 
 ---
 
 ## Database Schema
 
-The SQLite database stores records in a table named `records` with:
+Table: `records`
 
-* `name` as the primary key
+* `name` (primary key)
 * `value`
-* `metadata` stored as JSON text
-
-This database acts as a local cache of Cloudflare KV data.
+* `metadata` (JSON text)
 
 ---
 
 ## Search Modes
 
-The UI supports four search modes:
-
-* **All** — retrieve all cached entries
-* **By UUID** — retrieve a single entry by ID
-* **By URL (single)** — retrieve one entry by exact value
-* **By URL (multiple)** — retrieve all entries with the same value
-
-After results are loaded, the table also supports approximate filtering through Fuse.js.
+* All
+* By UUID
+* By URL (single)
+* By URL (multiple)
 
 ---
 
 ## Bulk Insert CSV Template
 
-The app can generate a CSV template named:
-
-```text
+```
 CDN Manager Bulk Insert Template.csv
 ```
 
-The file is saved to the user's `Downloads` folder and revealed in Finder.
+Header:
 
-Expected header:
-
-```csv
+```
 name,value,metadata_name,metadata_external,metadata_mimetype,metadata_location,metadata_description,metadata_cloud_storage_id,metadata_md5Checksum
 ```
-
-### Example row
-
-```csv
-635ce241-ea02-4faf-b888-295f522e7cb4,https://example.com/file.pdf,Project File,false,application/pdf,cdn.example.com owner@example.com,Example document,abc123,d41d8cd98f00b204e9800998ecf8427e
-```
-
----
-
-## Frontend Validation
-
-The setup form validates:
-
-* **Cloudflare Email** as an email input
-* **Cloudflare API Key** using a token-like regex
-* **Account ID** as 32 lowercase hex characters
-* **Namespace ID** as 32 lowercase hex characters
-* **Domain** as a valid hostname or URL-like domain string
 
 ---
 
 ## Link Generation
 
-Entry links are built from the configured domain.
-
-For a record ID like:
-
-```text
-635ce241-ea02-4faf-b888-295f522e7cb4
+```
+https://your-domain.example/?id=<uuid>
 ```
 
-the generated link becomes:
+Fallback:
 
-```text
-https://your-domain.example/?id=635ce241-ea02-4faf-b888-295f522e7cb4
 ```
-
-If the domain has not yet been loaded, the frontend temporarily falls back to:
-
-```text
 ?id=<uuid>
 ```
 
@@ -367,85 +345,33 @@ If the domain has not yet been loaded, the frontend temporarily falls back to:
 
 ## Build Requirements
 
-### Core requirements
+### Core
 
 * Go
 * Node.js / npm
 * Wails v2
-* macOS, Windows, or Linux development environment
 
-### macOS release requirements
-
-For universal, signed, and notarized macOS builds:
+### macOS
 
 * Apple Developer account
-* Developer ID Application certificate
-* Xcode command line tools
-* `notarytool` credentials stored in a keychain profile
+* Developer ID certificate
+* Xcode CLI tools
+* `notarytool` configured
 
 ---
 
 ## Development
 
-### Install frontend dependencies
-
 ```bash
 cd frontend
 npm install
-```
 
-### Run in development mode
-
-```bash
 wails dev
-```
-
-### Run checks
-
-```bash
-make check
-```
-
-### Build the app
-
-```bash
-make build
 ```
 
 ---
 
-## Release Workflow
-
-The project includes a `Makefile` for building and packaging release artifacts.
-
-### Release pipeline
-
-1. clean old build artifacts
-2. run environment checks
-3. build the Wails app as a **universal macOS binary**
-4. sign the `.app` bundle with a Developer ID certificate
-5. stage DMG contents
-6. create the universal DMG
-7. submit the DMG to Apple notarization
-8. staple the notarization ticket
-9. validate the final release artifact
-10. upload the DMG to a tagged GitHub release
-
-### Developer pipeline
-
-The release workflow also includes source-level provenance:
-
-* release changes are committed with a signed Git commit
-* release versions are marked with a signed Git tag
-* `main` is advanced to the tagged release commit
-* the final DMG is attached to the GitHub release for that signed tag
-
-This gives the release pipeline both:
-
-* **source provenance** through signed commits and tags
-* **distribution trust** through Developer ID signing and Apple notarization
-
-### Common commands
+## Commands
 
 ```bash
 make build
@@ -455,28 +381,27 @@ make clean
 
 ---
 
-## Current Architecture Notes
+## Architecture Notes
 
-* Config logic is centralized in `pkg/config`
-* Cloudflare session initialization uses the shared config type directly
-* The frontend dynamically uses the configured domain instead of a hardcoded URL
-* KV value loading from storage keys is parallelized with workers in `pkg/session`
-* The local SQLite database is used as the app's fast searchable cache layer
+* Config centralized in `pkg/config`
+* Token-based Cloudflare auth
+* Reconciliation logic isolated in `pkg/reconcile`
+* SQLite used as primary read layer
+* Parallel KV retrieval
 
 ---
 
 ## Tech Stack
 
-* **Go**
-* **Wails v2**
-* **Cloudflare Go SDK**
-* **SQLite**
-* **Vanilla JavaScript**
-* **Fuse.js**
-* **HTML/CSS**
+* Go
+* Wails v2
+* Cloudflare Go SDK
+* SQLite
+* Vanilla JS
+* Fuse.js
 
 ---
 
 ## Author
 
-**William Veith**
+William Veith
