@@ -94,35 +94,93 @@ Each KV record can include structured metadata:
 
 ## Project Structure
 
+## Project Structure
+
 ```
 .
-├── Makefile
-├── README.md
-├── app.go
+├── Makefile                     # Build, package, and release automation
+├── README.md                    # Project documentation
+├── app.go                       # Wails application bindings and exposed methods
 ├── data
-│   └── schema.sql
+│   └── schema.sql               # SQLite schema used to initialize the local database
 ├── frontend
-│   ├── dist
-│   ├── index.html
-│   ├── package-lock.json
-│   ├── package.json
-│   ├── package.json.md5
-│   ├── src
+│   ├── dist                     # Production frontend build output
 │   │   ├── assets
-│   │   ├── main.js
-│   │   └── styles
-│   └── wailsjs
-├── go.mod
-├── go.sum
+│   │   │   ├── IBMPlexMono-Regular.49ce58b4.woff2          # Bundled IBM Plex Mono font
+│   │   │   ├── appicon.d007682b.png                        # Bundled application icon
+│   │   │   ├── glyphicons-halflings-regular.fe185d11.woff2 # Bundled glyphicon font
+│   │   │   ├── index.24410bbd.css                          # Compiled frontend styles
+│   │   │   └── index.6078d637.js                           # Compiled frontend logic
+│   │   └── index.html              # Built frontend entrypoint
+│   ├── index.html                 # Frontend HTML shell used during development/build
+│   ├── package-lock.json          # Locked frontend dependency versions
+│   ├── package.json               # Frontend package manifest
+│   ├── package.json.md5           # Integrity hash for package manifest
+│   ├── src                        # Frontend source code
+│   │   ├── assets
+│   │   │   ├── fonts
+│   │   │   │   ├── IBM_Plex_Mono
+│   │   │   │   │   ├── IBMPlexMono-Regular.woff2          # Primary monospace UI font
+│   │   │   │   │   └── license.txt                        # IBM Plex Mono license
+│   │   │   │   └── glyphicons_halflings
+│   │   │   │       ├── glyphicons-halflings-regular.woff2 # Icon font
+│   │   │   │       └── license.txt                        # Glyphicon license
+│   │   │   └── images
+│   │   │       ├── appicon.png          # Raster app icon
+│   │   │       └── appicon.svg          # Vector app icon
+│   │   ├── controllers                  # Frontend behavior and UI orchestration
+│   │   │   ├── appController.js         # Application bootstrap/controller coordination
+│   │   │   ├── configController.js      # Setup form behavior and submission handling
+│   │   │   ├── deleteController.js      # Delete flow and event handling
+│   │   │   ├── insertController.js      # Manual/CSV insert workflows
+│   │   │   └── searchController.js      # Search flow and result handling
+│   │   ├── main.js                      # Frontend entrypoint
+│   │   ├── services                     # Thin wrappers around Wails/Go APIs
+│   │   │   ├── appService.js            # App-level backend service calls
+│   │   │   └── dbService.js             # Database-related backend service calls
+│   │   ├── state
+│   │   │   └── appState.js              # Shared frontend state
+│   │   ├── styles
+│   │   │   └── app.css                  # Application styling
+│   │   ├── utils
+│   │   │   ├── clipboard.js             # Clipboard helpers
+│   │   │   ├── domain.js                # Domain/link normalization helpers
+│   │   │   └── uuid.js                  # UUID helper functions
+│   │   └── views                        # DOM rendering and UI templates
+│   │       ├── configView.js            # Initial setup/configuration view
+│   │       ├── shellView.js             # Main application shell
+│   │       └── tableView.js             # Search result table rendering
+│   └── wailsjs                          # Auto-generated Wails JS bindings
+│       ├── go
+│       │   ├── database
+│       │   │   ├── Database.d.ts        # TypeScript definitions for DB bindings
+│       │   │   └── Database.js          # JS bindings for DB methods
+│       │   ├── main
+│       │   │   ├── App.d.ts             # TypeScript definitions for app bindings
+│       │   │   └── App.js               # JS bindings for app methods
+│       │   └── models.ts                # Shared generated model definitions
+│       └── runtime
+│           ├── package.json             # Wails runtime package metadata
+│           ├── runtime.d.ts             # Wails runtime TypeScript definitions
+│           └── runtime.js               # Wails runtime helpers
+├── go.mod                         # Go module definition
+├── go.sum                         # Go dependency checksums
 ├── hooks
-├── main.go
-├── pkg
+│   ├── postbuild.sh               # Post-build automation hook
+│   └── prebuild.sh                # Pre-build automation hook
+├── main.go                        # Go application entrypoint
+├── pkg                            # Internal Go packages
 │   ├── config
+│   │   └── config.go              # App configuration loading, validation, normalization
 │   ├── database
+│   │   └── database.go            # SQLite/database access layer
 │   ├── models
+│   │   └── models.go              # Shared Go data models
 │   ├── reconcile
+│   │   └── reconcile.go           # Cloudflare/database reconciliation logic
 │   └── session
-└── wails.json
+│       └── session.go             # Session/runtime state management
+└── wails.json                     # Wails project configuration
 ```
 
 ---
