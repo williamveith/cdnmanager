@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/cloudflare/cloudflare-go/v6 v6.8.0
-	github.com/mattn/go-sqlite3 v1.14.34
+	github.com/mattn/go-sqlite3 v1.14.40
 	github.com/wailsapp/wails/v2 v2.11.0
 )
 
