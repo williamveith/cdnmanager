@@ -18,7 +18,7 @@
   },
   "info": {
     "productName": "CDN Manager",
-    "productVersion": "3.0.1",
+    "productVersion": "3.1.0",
     "copyright": "Copyright © 2026 William Veith",
     "comments": "Admin Utility for Cloudflare KV Namespace"
   }
