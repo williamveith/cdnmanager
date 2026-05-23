@@ -7,6 +7,7 @@ import { bindConfigEvents } from './configController';
 import { bindSearchEvents } from './searchController';
 import { bindInsertEvents } from './insertController';
 import { bindDeleteEvents } from './deleteController';
+import { bindExportEvents } from './exportController';
 
 const appRoot = document.querySelector('#app');
 
@@ -27,6 +28,7 @@ export async function initializeApp() {
     bindSearchEvents();
     bindInsertEvents();
     bindDeleteEvents();
+    bindExportEvents();
   } catch (err) {
     renderConfigView(appRoot);
     bindConfigEvents();

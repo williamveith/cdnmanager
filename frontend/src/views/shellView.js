@@ -31,5 +31,9 @@ export function renderMainShell(appRoot) {
       <input class="input" id="deleteEntryName" type="text" spellcheck="false" placeholder="Enter UUID" size="40"/>
       <button class="btn" id="delete-button">Delete</button>
     </div>
+
+    <div id="export-entry" class="section">
+      <button class="btn" id="export-button" style="width:120px">Export Database</button>
+    </div>
   `;
 }
