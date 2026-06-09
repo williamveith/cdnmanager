@@ -22,7 +22,7 @@ import (
 )
 
 const bulkInsertTemplateName = "CDN Manager Bulk Insert Template.csv"
-const databaseExportName = "CDN Manager Reccords Export.csv"
+const databaseExportName = "CDN Manager Records Export.csv"
 
 type App struct {
 	ctx               context.Context
