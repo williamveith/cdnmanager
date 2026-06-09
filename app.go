@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/csv"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +22,7 @@ import (
 )
 
 const bulkInsertTemplateName = "CDN Manager Bulk Insert Template.csv"
+const databaseExportName = "CDN Manager Records Export.csv"
 
 type App struct {
 	ctx               context.Context
@@ -229,17 +233,140 @@ func (a *App) Delete(key string) error {
 // Files
 // -----------------------------------------------------------------------------
 
-func SaveTemplateFile() (string, error) {
-	csvContent := `name,value,metadata_name,metadata_external,metadata_mimetype,metadata_location,metadata_description,metadata_cloud_storage_id,metadata_md5Checksum`
+func entriesToCSV(entries []models.Entry) (string, error) {
+	var buf bytes.Buffer
+
+	writer := csv.NewWriter(&buf)
+
+	header := []string{
+		"name",
+		"value",
+		"metadata_name",
+		"external",
+		"mimetype",
+		"location",
+		"cloud_storage_id",
+		"md5_checksum",
+		"description",
+		"modified",
+	}
+
+	if err := writer.Write(header); err != nil {
+		return "", fmt.Errorf("write csv header: %w", err)
+	}
+
+	for _, entry := range entries {
+		row := []string{
+			entry.Name,
+			entry.Value,
+			entry.Metadata.Name,
+			strconv.FormatBool(entry.Metadata.External),
+			entry.Metadata.MimeType,
+			entry.Metadata.Location,
+			entry.Metadata.CloudStorageID,
+			entry.Metadata.MD5Checksum,
+			entry.Metadata.Description,
+			strconv.FormatInt(entry.Metadata.Modified, 10),
+		}
+
+		if err := writer.Write(row); err != nil {
+			return "", fmt.Errorf("write csv row for %q: %w", entry.Name, err)
+		}
+	}
+
+	writer.Flush()
+
+	if err := writer.Error(); err != nil {
+		return "", fmt.Errorf("flush csv writer: %w", err)
+	}
+
+	return buf.String(), nil
+}
+
+func (a *App) SaveDatabaseFile() (string, error) {
+	if err := a.ensureSession(); err != nil {
+		return "", err
+	}
+
+	databaseEntries, err := a.db.GetAllEntries()
+
+	if err != nil {
+		return "", fmt.Errorf("fetch database entries: %w", err)
+	}
+
+	csvContent, err := entriesToCSV(databaseEntries)
+	if err != nil {
+		return "", fmt.Errorf("build csv content: %w", err)
+	}
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
 
-	filePath := filepath.Join(homeDir, "Downloads", bulkInsertTemplateName)
+	filePath := filepath.Join(homeDir, "Downloads", databaseExportName)
 	if err := os.WriteFile(filePath, []byte(csvContent), 0644); err != nil {
 		return "", err
+	}
+
+	return filePath, nil
+}
+
+func (a *App) GenerateDatabaseCSV() (string, error) {
+	path, err := a.SaveDatabaseFile()
+	if err != nil {
+		return "", err
+	}
+
+	openInFinder(path)
+	return path, nil
+}
+
+func templateToCSV() (string, error) {
+	var buf bytes.Buffer
+
+	writer := csv.NewWriter(&buf)
+
+	header := []string{
+		"name",
+		"value",
+		"metadata_name",
+		"metadata_external",
+		"metadata_mimetype",
+		"metadata_location",
+		"metadata_description",
+		"metadata_cloud_storage_id",
+		"metadata_md5Checksum",
+	}
+
+	if err := writer.Write(header); err != nil {
+		return "", fmt.Errorf("write template csv header: %w", err)
+	}
+
+	writer.Flush()
+
+	if err := writer.Error(); err != nil {
+		return "", fmt.Errorf("flush template csv writer: %w", err)
+	}
+
+	return buf.String(), nil
+}
+
+func SaveTemplateFile() (string, error) {
+	csvContent, err := templateToCSV()
+	if err != nil {
+		return "", fmt.Errorf("build template csv: %w", err)
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("get user home dir: %w", err)
+	}
+
+	filePath := filepath.Join(homeDir, "Downloads", bulkInsertTemplateName)
+
+	if err := os.WriteFile(filePath, []byte(csvContent), 0644); err != nil {
+		return "", fmt.Errorf("write template csv file: %w", err)
 	}
 
 	return filePath, nil
