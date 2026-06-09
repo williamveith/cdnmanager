@@ -132,6 +132,7 @@ Each KV record can include structured metadata:
 │   │   │   ├── appController.js         # Application bootstrap/controller coordination
 │   │   │   ├── configController.js      # Setup form behavior and submission handling
 │   │   │   ├── deleteController.js      # Delete flow and event handling
+│   │   │   ├── exportController.js      # Export flow and event handling
 │   │   │   ├── insertController.js      # Manual/CSV insert workflows
 │   │   │   └── searchController.js      # Search flow and result handling
 │   │   ├── main.js                      # Frontend entrypoint
